@@ -1,0 +1,5 @@
+{
+  "buildType" : "debug",
+  "targets" : ["x86", "armeabi"],
+  "androidProjectRoot" : "../BeeldbellenPOP"
+}
