@@ -37,12 +37,16 @@ _init = do
 
 
 _gdb :: Args -> IO ()
-_gdb _ = do
+_gdb args = do
   config <- readConfig "config.json"
   print $ targets config
 
+  let dev = if null args then
+              Nothing
+            else
+              Just $ head args
   gdbMain 
-    Nothing
+    dev
     (androidProjectName config)
     (androidProjectRoot config ++ "/app/src/main/jniLibs")
     (targets config)
