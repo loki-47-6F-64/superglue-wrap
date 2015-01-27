@@ -50,5 +50,5 @@ toArgs output ndkRoot target = [
             "--toolchain=" ++ toolchain target,
             "--ndk-dir=" ++ ndkRoot,
             "--arch=" ++ arch target,
-    concat ["--install-dir=",output,'/':arch target]
+    concat ["--install-dir=",output,'/':abi target]
   ]

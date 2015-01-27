@@ -5,16 +5,12 @@ import Data.Functor
 import qualified Data.ByteString.Lazy as LB
 import GHC.Generics
 
-import qualified Control.Monad as M
-import qualified Control.Concurrent as C
-
 import System.Environment
-import System.Process
-import System.Directory
 
 import Common
 import Download
 import Extract
+import Debug
 
 
 data Config = Config {
@@ -39,26 +35,23 @@ _init = do
   downloadToolchain "Linux 64-bit (x86)" >>= \x -> extractToolchain "output" x $ targets config
 
 
+
 _gdb :: Args -> IO ()
 _gdb _ = do
   config <- readConfig "config.json"
   print $ targets config
 
-  exist <- doesDirectoryExist "/tmp/system_lib"
-
-  M.unless exist $
-    M.void $ procM_ "adb" ["pull", "/system/lib", "/tmp/system_lib"]
-    
-  _ <- createProcess (proc "./debug.sh" $ [androidProjectName config])
-  C.threadDelay $ 1000*1000
-  _ <- procM_ "gdb" []
-  return ()
+  gdbMain 
+    Nothing
+    (androidProjectName config)
+    (androidProjectRoot config ++ "/app/src/main/jniLibs")
+    (targets config)
   
 _test :: Args -> IO ()
 _test _ = do
-  _ <- procM_ "echo" ["Hello World!"]
-  return ()
+  config <- readConfig "config.json"
 
+  (print . targets) config
   --print $ output exit
 
 main' :: Args -> IO ()

@@ -14,7 +14,8 @@ type Args = [String]
 data Target = Target {
   arch      :: !String,
   toolchain :: !String,
-  gdb       :: !String
+  gdb       :: !String,
+  abi       :: !String
 } deriving (Show, Generic)
 
 
