@@ -10,45 +10,45 @@ import Text.XML.Cursor
 import Data.Maybe
 import qualified Data.List as L
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8)
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Base16 as B16
 
 import qualified Control.Monad as M
 
 data Download = Download {
-  host     :: T.Text,
-  bin      :: T.Text,
-  href     :: T.Text,
-  checksum :: T.Text
+  host     :: String,
+  bin      :: String,
+  href     :: String,
+  checksum :: String
 } deriving (Show)
 
-fromContent :: [T.Text] -> Download
+fromContent :: [String] -> Download
 fromContent (host':bin':checksum':_) = Download {
   host     = host',
-  bin      = T.concat ["./",bin'],
-  href     = T.concat ["http://dl.google.com/android/ndk/",bin'],
+  bin      = "./" ++ bin',
+  href     = "http://dl.google.com/android/ndk/" ++ bin',
   checksum = checksum'
 }
 
-downloadToolchain :: T.Text -> IO FilePath
+downloadToolchain :: String -> IO FilePath
 downloadToolchain hostType' = do
   print ("Search Download parameters" :: String)
   down <- M.liftM (findDownload hostType' . findDownloads) getHTML
 
   print ("Downloading..." :: String)
-  download (T.unpack $ href down) (T.unpack $ bin down)
+  download (href down) (bin down)
   
 
   let succes x
         | x /= checksum down = fail $
-          concat ["Checksum '",T.unpack x,"' doesn't match '",(T.unpack . checksum) down,"'"]
-        | otherwise = return (T.unpack $ bin down)
+          concat ["Checksum '",x,"' doesn't match '",checksum down,"'"]
+        | otherwise = return (bin down)
 
-        in md5sum (T.unpack $ bin down) >>= succes . decodeUtf8
+        in md5sum (bin down) >>= succes . B8.unpack
 
-  (return . T.unpack . bin) down
+  (return . bin) down
 
 
 getHTML :: IO Cursor
@@ -60,14 +60,14 @@ findTable :: Cursor -> [Cursor]
 findTable = element "table" >=> attributeIs "id" "download-table" >=> child >=> element "tr"
 
 findDownloads :: Cursor -> [Download]
-findDownloads c = map (fromContent . sanitize . ($// content)) (tail $ ($// findTable) c)
+findDownloads c = map (fromContent . map T.unpack . sanitize . ($// content)) (tail $ ($// findTable) c)
   where sanitize (_:x:_:_:y:_:_:_:_:z:_) = [x,y,z]
 
-findDownload :: T.Text -> [Download] -> Download
+findDownload :: String -> [Download] -> Download
 findDownload hostType = unjust . L.find (\x -> host x == hostType)
   where unjust x
           | isJust x  = fromJust x
-          | otherwise = error ("Unknown hostType: " ++ T.unpack hostType)
+          | otherwise = error ("Unknown hostType: " ++ hostType)
 
 
 download :: String -> FilePath -> IO ()

@@ -2,30 +2,53 @@
 
 module Extract (extractToolchain) where
 
-import System.Process
 import System.Exit
 import System.Directory
 
-import Data.Maybe
-
 import qualified Control.Monad as M
 
+import Common
 
-extractToolchain :: FilePath -> IO FilePath
-extractToolchain filePath = M.liftM fromJust $ extractBin filePath
+
+extractToolchain :: FilePath -> FilePath -> [Target] -> IO ()
+extractToolchain output bin targets = extractBin output bin >>= initialize' output targets
+  where initialize' x z y = initialize x y z
 
 
 modPermission :: (Permissions -> Permissions) -> FilePath -> IO ()
 modPermission f filePath = getPermissions filePath >>= setPermissions filePath . f
 
-extractBin :: FilePath -> IO (Maybe FilePath)
-extractBin binPath = do
-  modPermission (setOwnerExecutable True) binPath
-  exitCode <- createProcess (proc binPath ["-o" ++ outputDir]) >>= (\(_,_,_,handle) -> waitForProcess handle)
-  if exitCode == ExitSuccess then
-    M.liftM ((return . (++) (outputDir ++ "/") .  head) . filter (\x -> head x /= '.')) $ getDirectoryContents outputDir
+extractBin :: FilePath -> FilePath -> IO FilePath
+extractBin output bin = do
+  modPermission (setOwnerExecutable True) bin
+  exitCode <- procM_ bin ["-o" ++ outputDir]
 
+  if exitCode == ExitSuccess then do
+    dir <- M.liftM (head . filter (\x -> head x /= '.')) $ getDirectoryContents outputDir
+
+    (return . concat) [outputDir, '/':dir]
   else
-    return Nothing
+    fail "Error extracting toolchain"
 
-  where outputDir = "output/toolchain"
+  where outputDir = output ++ "/toolchain"
+
+
+copyToolchain :: FilePath -> Args -> IO ()
+copyToolchain bin args = do
+  exitCode <- procM_ bin args
+  M.unless (exitCode == ExitSuccess) $ fail "Error copying toolchain"
+  
+
+
+initialize :: FilePath -> FilePath -> [Target] -> IO ()
+initialize output ndkRoot = mapM_ (copyToolchain makeStandalone . toArgs')
+  where makeStandalone = ndkRoot ++ "/build/tools/make-standalone-toolchain.sh"
+        toArgs' = toArgs output ndkRoot
+
+toArgs :: FilePath -> FilePath -> Target -> Args
+toArgs output ndkRoot target = [
+            "--toolchain=" ++ toolchain target,
+            "--ndk-dir=" ++ ndkRoot,
+            "--arch=" ++ arch target,
+    concat ["--install-dir=",output,'/':arch target]
+  ]

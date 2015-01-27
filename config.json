@@ -1,5 +1,17 @@
 {
   "buildType" : "debug",
-  "targets" : ["x86", "armeabi"],
-  "androidProjectRoot" : "../BeeldbellenPOP"
+  "androidProjectRoot" : "../BeeldbellenPOP",
+  "androidProjectName" : "com.noxqs.loki.beeldbellenpop"
+  "targets" : [
+    {
+      "arch" : "x86",
+      "toolchain" : "x86-4.9",
+      "gdb" : "i686-linux-android-gdb"
+    },
+    {
+      "arch" : "arm",
+      "toolchain" : "arm-linux-androideabi-4.9",
+      "gdb" : "arm-linux-androideabi-gdb"
+    }
+  ]
 }
