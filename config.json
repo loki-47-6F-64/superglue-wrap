@@ -1,5 +1,4 @@
 {
-  "buildType" : "debug",
   "androidProjectRoot" : "../BeeldbellenPOP",
   "androidProjectName" : "com.noxqs.loki.beeldbellenpop",
   "targets" : [

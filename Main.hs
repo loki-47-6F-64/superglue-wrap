@@ -11,17 +11,19 @@ import Common
 import Download
 import Extract
 import Debug
+import Build
 
 
 data Config = Config {
-  buildType           :: !String,
   targets             :: ![Target],
   androidProjectRoot  :: !String,
   androidProjectName  :: !String
 } deriving (Show, Generic)
 
-instance JSON.FromJSON Target
 instance JSON.FromJSON Config
+
+makeEither :: (a -> Bool) -> (a -> b) -> a -> b -> b
+makeEither fBool fB a b = if fBool a then fB a else b
 
 readConfig :: FilePath -> IO Config
 readConfig filePath = (right . JSON.eitherDecode) <$> LB.readFile filePath
@@ -35,6 +37,14 @@ _init = do
   downloadToolchain "Linux 64-bit (x86)" >>= \x -> extractToolchain "output" x $ targets config
 
 
+_build :: Args -> IO ()
+_build args = do
+  config <- readConfig "config.json"  
+
+  let buildType = makeEither (not . null) head args "debug"
+
+  buildMain buildType (androidProjectRoot config) "output" (targets config)
+  
 
 _gdb :: Args -> IO ()
 _gdb args = do
@@ -48,6 +58,7 @@ _gdb args = do
   gdbMain 
     dev
     (androidProjectName config)
+    "output"
     (androidProjectRoot config ++ "/app/src/main/jniLibs")
     (targets config)
   
@@ -57,9 +68,10 @@ _test _ = readConfig "config.json" >>= print
 
 main' :: Args -> IO ()
 main' (x:args)
-  | x == "init" = _init
-  | x == "gdb"  = _gdb args
-  | x == "test" = _test args
+  | x == "init"  = _init
+  | x == "build" = _build args
+  | x == "gdb"   = _gdb   args
+  | x == "test"  = _test  args
   | otherwise = fail "Unknown cmd"
 
 main :: IO ()

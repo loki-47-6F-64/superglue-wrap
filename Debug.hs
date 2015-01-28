@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Debug (Device(..), gdbMain, devices, adbCmd) where
+module Debug (Device(..), gdbMain, devices) where
 
 import Data.List
 import qualified Control.Monad as M
@@ -24,8 +24,8 @@ fromName n = do
     cpuAbi  = abi'
   }
 
-gdbMain :: Maybe String -> String -> FilePath -> [Target] -> IO ()
-gdbMain mDev projectName libSearchPath targets = do
+gdbMain :: Maybe String -> String -> FilePath -> FilePath -> [Target] -> IO ()
+gdbMain mDev projectName output libSearchPath targets = do
   devices' <- devices
 
   let Just dev = maybe ((Just . head) devices') (findMap name devices') mDev
@@ -43,14 +43,16 @@ gdbMain mDev projectName libSearchPath targets = do
       (fmap (head . tail . words) . find (isInfixOf projectName) . tail . lines . hout) $
       adbCmd (name dev) ["ps"]
 
-  _ <- createProcess $ proc "adb" [
-      "-s" ++ name dev,
-      "shell", "run-as", projectName,
-      "gdbserver", "--attach", ":1234", pid]
+  adbCmd_ (name dev) ["run-as", projectName, "gdbserver", "--attach", ":1234", pid]
   C.threadDelay $ 1000*1000
-  let gdbBin' = concat ["./output/", cpuAbi dev, "/bin/", gdb target]
+  let gdbBin' = concat ["./", output, '/':cpuAbi dev, "/bin/", gdb target]
 
-  _ <- procM_  gdbBin' ["-iex","set auto-solib-add on", "-ex", "target remote :1234", "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':cpuAbi dev]]
+  _ <- procM_  gdbBin' [
+      "-iex","set auto-solib-add on",
+      "-ex", "target remote :1234",
+      "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':cpuAbi dev]
+    ]
+
   return ()
 
 devices :: IO [Device]
@@ -62,18 +64,21 @@ devices = do
 adb :: String -> Args -> IO Exit
 adb devName args = procM "adb" $ ("-s" ++ devName):args
 
-adb_ :: String -> Args -> IO ExitCode
-adb_ devName args = procM_ "adb" $ ("-s" ++ devName):args
+adb_ :: String -> Args -> IO ProcessHandle
+adb_ devName args = procMConcurrent "adb" $ ("-s" ++ devName):args
 
 
 adbCmd :: String -> Args -> IO Exit
 adbCmd devName args = adb devName ("shell":args)
 
+adbCmd_ :: String -> Args -> IO ()
+adbCmd_ devName args = M.void $ adb_ devName ("shell":args)
+
 adbForward :: String -> IO ExitCode
-adbForward = flip adb_ ["forward", "tcp:1234", "tcp:1234"]
+adbForward devName = adb_ devName ["forward", "tcp:1234", "tcp:1234"] >>= close
 
 adbPull :: String -> FilePath -> FilePath -> IO ExitCode
-adbPull devName in' out' = adb_ devName ["pull", in', out']
+adbPull devName in' out' = adb_ devName ["pull", in', out'] >>= close
 
 findMap :: Eq b => (a -> b) -> [a] -> b -> Maybe a
 findMap f xs e = find ((==) e . f) xs
