@@ -32,12 +32,16 @@ procM_ bin args = createProcess (proc bin args) >>= close
 
 procM :: FilePath -> Args -> IO Exit
 procM bin args = do 
-  (_,Just out,_,handle) <- createProcess (proc bin args) { std_out = CreatePipe }
+  (_, Just out, Just err,handle) <- createProcess (proc bin args) { 
+    std_out = CreatePipe,
+    std_err = CreatePipe
+  }
 
   hout' <- hGetContents out
+  err'  <- hGetContents err
   code' <- waitForProcess handle
 
   return Exit {
-    hout = hout',
-    code   = code'
+    hout = if code' == ExitSuccess then hout' else err',
+    code = code'
   }

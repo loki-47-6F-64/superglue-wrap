@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Debug (Device(..), gdbMain, devices) where
+module Debug (Device(..), gdbMain, devices, adbCmd) where
 
 import Data.List
 import qualified Control.Monad as M
 import System.Directory
 import System.Process
+import System.Exit
 import qualified Control.Concurrent as C
 import Common
 
@@ -23,34 +24,24 @@ fromName n = do
     cpuAbi  = abi'
   }
 
-devices :: IO [Device]
-devices = do
-  devNames <- M.liftM (map (takeWhile ('\t' /=)) . filter (elem '\t') . lines . hout) $ procM "adb" ["devices"]
-
-  M.mapM fromName devNames
-
-
-findMap :: Eq b => (a -> b) -> [a] -> b -> Maybe a
-findMap f xs e = find ((==) e . f) xs
-
 gdbMain :: Maybe String -> String -> FilePath -> [Target] -> IO ()
 gdbMain mDev projectName libSearchPath targets = do
   devices' <- devices
 
   let Just dev = maybe ((Just . head) devices') (findMap name devices') mDev
-  
-  dir <- getAppUserDataDirectory "superglue" >>= \x -> return $ concat [x, "/devices/", name dev]
-
   let target = (head . filter (\x -> cpuAbi dev == abi x)) targets
 
+  dir <- getAppUserDataDirectory "superglue" >>= \x -> return $ concat [x, "/devices/", name dev]
 
   exist <- doesDirectoryExist dir
-
   M.unless exist $
-    M.void $ procM_ "adb" ["-s" ++ name dev, "pull", "/system/lib", dir]
+    M.void $ adbPull (name dev) "/system/lib" dir
 
-  _ <- procM_ "adb" ["-s" ++ name dev, "forward", "tcp:1234", "tcp:1234"]
-  pid <- M.liftM (init . hout) $ procM "./debug.sh" [projectName, name dev]
+  _ <- adbForward $ name dev
+  Just pid <-
+    M.liftM
+      (fmap (head . tail . words) . find (isInfixOf projectName) . tail . lines . hout) $
+      adbCmd (name dev) ["ps"]
 
   _ <- createProcess $ proc "adb" [
       "-s" ++ name dev,
@@ -60,5 +51,29 @@ gdbMain mDev projectName libSearchPath targets = do
   let gdbBin' = concat ["./output/", cpuAbi dev, "/bin/", gdb target]
 
   _ <- procM_  gdbBin' ["-iex","set auto-solib-add on", "-ex", "target remote :1234", "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':cpuAbi dev]]
-  
   return ()
+
+devices :: IO [Device]
+devices = do
+  devNames <- M.liftM (map (takeWhile ('\t' /=)) . filter (elem '\t') . lines . hout) $ procM "adb" ["devices"]
+
+  M.mapM fromName devNames
+
+adb :: String -> Args -> IO Exit
+adb devName args = procM "adb" $ ("-s" ++ devName):args
+
+adb_ :: String -> Args -> IO ExitCode
+adb_ devName args = procM_ "adb" $ ("-s" ++ devName):args
+
+
+adbCmd :: String -> Args -> IO Exit
+adbCmd devName args = adb devName ("shell":args)
+
+adbForward :: String -> IO ExitCode
+adbForward = flip adb_ ["forward", "tcp:1234", "tcp:1234"]
+
+adbPull :: String -> FilePath -> FilePath -> IO ExitCode
+adbPull devName in' out' = adb_ devName ["pull", in', out']
+
+findMap :: Eq b => (a -> b) -> [a] -> b -> Maybe a
+findMap f xs e = find ((==) e . f) xs

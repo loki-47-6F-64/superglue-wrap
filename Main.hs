@@ -52,11 +52,8 @@ _gdb args = do
     (targets config)
   
 _test :: Args -> IO ()
-_test _ = do
-  config <- readConfig "config.json"
+_test _ = readConfig "config.json" >>= print
 
-  (print . targets) config
-  --print $ output exit
 
 main' :: Args -> IO ()
 main' (x:args)
