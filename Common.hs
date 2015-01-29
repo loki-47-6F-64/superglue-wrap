@@ -9,7 +9,8 @@ module Common (
   procM_,
   procMConcurrent,
   close,
-  close_
+  close_,
+  ifElse
 ) where
 
 import qualified Data.Aeson as JSON
@@ -19,6 +20,7 @@ import System.IO
 
 import qualified Control.Monad as M
 import GHC.Generics
+
 
 
 type Args = [String]
@@ -35,6 +37,11 @@ data Exit = Exit {
   code   :: !ExitCode,
   hout :: !String
 }
+
+ifElse :: Bool -> m a -> m a -> m a
+ifElse b m1 m2
+  | b         = m1
+  | otherwise = m2
 
 close :: ProcessHandle -> IO ExitCode
 close = waitForProcess

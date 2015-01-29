@@ -7,10 +7,6 @@ import System.Directory
 import System.Exit
 import Common
 
-ifElse :: Bool -> m a -> m a -> m a
-ifElse b m1 m2
-  | b         = m1
-  | otherwise = m2
 
 buildMain' :: String -> FilePath -> FilePath -> Target -> IO ()
 buildMain' buildType projectRoot output target = do
