@@ -15,6 +15,8 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Base16 as B16
 
+import System.Directory
+
 import qualified Control.Monad as M
 
 data Download = Download {
@@ -24,19 +26,21 @@ data Download = Download {
   checksum :: String
 } deriving (Show)
 
-fromContent :: [String] -> Download
-fromContent (host':bin':checksum':_) = Download {
+fromContent :: FilePath -> [String] -> Download
+fromContent output (host':bin':checksum':_) = Download {
   host     = host',
-  bin      = "./" ++ bin',
+  bin      = "./" ++ output ++ '/':bin',
   href     = "http://dl.google.com/android/ndk/" ++ bin',
   checksum = checksum'
 }
 
-downloadToolchain :: String -> IO FilePath
-downloadToolchain hostType' = do
+downloadToolchain :: String -> FilePath -> IO FilePath
+downloadToolchain hostType' output = do
   print ("Search Download parameters" :: String)
-  down <- M.liftM (findDownload hostType' . findDownloads) getHTML
+  down <- M.liftM (findDownload hostType' . findDownloads output) getHTML
 
+  
+  createDirectoryIfMissing True output
   print ("Downloading..." :: String)
   download (href down) (bin down)
   
@@ -59,8 +63,8 @@ getHTML =
 findTable :: Cursor -> [Cursor]
 findTable = element "table" >=> attributeIs "id" "download-table" >=> child >=> element "tr"
 
-findDownloads :: Cursor -> [Download]
-findDownloads c = map (fromContent . map T.unpack . sanitize . ($// content)) (tail $ ($// findTable) c)
+findDownloads :: FilePath -> Cursor -> [Download]
+findDownloads output c = map (fromContent output . map T.unpack . sanitize . ($// content)) (tail $ ($// findTable) c)
   where sanitize (_:x:_:_:y:_:_:_:_:z:_) = [x,y,z]
 
 findDownload :: String -> [Download] -> Download

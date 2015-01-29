@@ -22,6 +22,9 @@ data Config = Config {
 
 instance JSON.FromJSON Config
 
+output :: FilePath
+output = "output"
+
 makeEither :: (a -> Bool) -> (a -> b) -> a -> b -> b
 makeEither fBool fB a b = if fBool a then fB a else b
 
@@ -34,7 +37,7 @@ _init = do
   config <- readConfig "config.json"
   print config
 
-  downloadToolchain "Linux 64-bit (x86)" >>= \x -> extractToolchain "output" x $ targets config
+  downloadToolchain "Linux 64-bit (x86)" output >>= \x -> extractToolchain output x $ targets config
 
 
 _build :: Args -> IO ()
@@ -43,7 +46,7 @@ _build args = do
 
   let buildType = makeEither (not . null) head args "debug"
 
-  buildMain buildType (androidProjectRoot config) "output" (targets config)
+  buildMain buildType (androidProjectRoot config) output (targets config)
   
 
 _gdb :: Args -> IO ()
@@ -58,7 +61,7 @@ _gdb args = do
   gdbMain 
     dev
     (androidProjectName config)
-    "output"
+    output
     (androidProjectRoot config ++ "/app/src/main/jniLibs")
     (targets config)
   
