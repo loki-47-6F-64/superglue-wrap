@@ -10,7 +10,9 @@ module Common (
   procMConcurrent,
   close,
   close_,
-  ifElse
+  ifElse,
+  ifElseM,
+  unlessM
 ) where
 
 import qualified Data.Aeson as JSON
@@ -38,7 +40,13 @@ data Exit = Exit {
   hout :: !String
 }
 
-ifElse :: Bool -> m a -> m a -> m a
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM ioBool m1 = ioBool >>= flip M.unless m1
+
+ifElseM :: Monad m => m Bool -> m a -> m a -> m a
+ifElseM ioBool m1 m2 = ioBool >>= \b -> ifElse b m1 m2
+
+ifElse  :: Bool -> m a -> m a -> m a
 ifElse b m1 m2
   | b         = m1
   | otherwise = m2

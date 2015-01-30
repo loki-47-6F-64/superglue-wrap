@@ -19,6 +19,7 @@ import System.Directory
 
 import qualified Control.Monad as M
 
+import Common
 data Download = Download {
   host     :: String,
   bin      :: String,
@@ -42,15 +43,15 @@ downloadToolchain hostType' output = do
   
   createDirectoryIfMissing True output
   print ("Downloading..." :: String)
-  download (href down) (bin down)
+  downloadIfMissing (checksum down) (href down) (bin down)
   
 
-  let succes x
-        | x /= checksum down = fail $
-          concat ["Checksum '",x,"' doesn't match '",checksum down,"'"]
-        | otherwise = return (bin down)
-
-        in md5sum (bin down) >>= succes . B8.unpack
+--  let succes x
+--        | x /= checksum down = fail $
+--          concat ["Checksum '",x,"' doesn't match '",checksum down,"'"]
+--        | otherwise = return (bin down)
+--
+--        in md5sum (bin down) >>= succes . B8.unpack
 
   (return . bin) down
 
@@ -74,10 +75,23 @@ findDownload hostType = unjust . L.find (\x -> host x == hostType)
           | otherwise = error ("Unknown hostType: " ++ hostType)
 
 
+downloadIfMissing :: String -> String -> FilePath -> IO ()
+downloadIfMissing md5 url bin' =
+  ifElseM (doesFileExist bin')
+    (unlessM (M.liftM (== md5) $ md5sum' bin')
+      (download url bin') >>
+        unlessM (M.liftM (== md5) $ md5sum' bin')
+          (fail $ concat ["Checksum of '", bin', "' doesn't match '", md5,"'"])
+    )
+    (download url bin')
+
+
 download :: String -> FilePath -> IO ()
 download url filePath = HTTP.simpleHttp url >>= LB.writeFile filePath
 
 
+md5sum' :: FilePath -> IO String
+md5sum' = M.liftM B8.unpack . md5sum
 
 md5sum :: FilePath -> IO B.ByteString
 md5sum filePath = M.liftM (B16.encode . MD5.hash) (B.readFile filePath)
