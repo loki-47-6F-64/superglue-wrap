@@ -41,7 +41,11 @@ copyToolchain bin args = do
 
 
 initialize :: FilePath -> FilePath -> [Target] -> IO ()
-initialize output ndkRoot = mapM_ (copyToolchain makeStandalone . toArgs')
+initialize output ndkRoot = mapM_ (\target ->
+    copyToolchain makeStandalone (toArgs' target) >> 
+      copyFile (concat [ndkRoot,"/prebuilt/android-", arch target, "/gdbserver/gdbserver"])
+               (concat [output, '/':abi target, "/bin/gdbserver"])
+  )
   where makeStandalone = ndkRoot ++ "/build/tools/make-standalone-toolchain.sh"
         toArgs' = toArgs output ndkRoot
 
