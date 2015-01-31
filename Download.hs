@@ -46,13 +46,6 @@ downloadToolchain hostType' output = do
   downloadIfMissing (checksum down) (href down) (bin down)
   
 
---  let succes x
---        | x /= checksum down = fail $
---          concat ["Checksum '",x,"' doesn't match '",checksum down,"'"]
---        | otherwise = return (bin down)
---
---        in md5sum (bin down) >>= succes . B8.unpack
-
   (return . bin) down
 
 

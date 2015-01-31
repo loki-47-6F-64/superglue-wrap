@@ -3,6 +3,8 @@
 import qualified Data.Aeson as JSON
 import Data.Functor
 import qualified Data.ByteString.Lazy as LB
+import qualified Control.Monad as M
+
 import GHC.Generics
 
 import System.Environment
@@ -25,9 +27,6 @@ instance JSON.FromJSON Config
 output :: FilePath
 output = "output"
 
-makeEither :: (a -> Bool) -> (a -> b) -> a -> b -> b
-makeEither fBool fB a b = if fBool a then fB a else b
-
 readConfig :: FilePath -> IO Config
 readConfig filePath = (right . JSON.eitherDecode) <$> LB.readFile filePath
   where right = either error id
@@ -44,7 +43,9 @@ _build :: Args -> IO ()
 _build args = do
   config <- readConfig "config.json"  
 
-  let buildType = makeEither (not . null) head args "debug"
+  let buildType = if "release" `elem` args then "release" else "debug"
+  M.unless ("init" `notElem` args) $ buildExternal buildType (androidProjectRoot config) output
+    
 
   buildMain buildType (androidProjectRoot config) output (targets config)
   
