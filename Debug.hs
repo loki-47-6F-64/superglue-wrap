@@ -17,7 +17,7 @@ data Device = Device {
 
 fromName :: String -> IO Device
 fromName n = do
-  abi' <- M.liftM (init . init . hout) $ procM "adb" ["-s", n, "shell", "getprop", "ro.product.cpu.abi"]
+  abi' <- M.liftM (init . init . hout) $ adbCmd n ["getprop", "ro.product.cpu.abi"]
 
   return Device {
     name = n,
@@ -37,12 +37,8 @@ gdbMain mDev projectName output libSearchPath targets = do
   M.unless exist $
     M.void $ adbPull (name dev) "/system/lib" dir
 
-  _ <- adbForward $ name dev
-  Just pid <- findPid (name dev) projectName
-
-  gdbserver <- pushGdbServerIfMissing (output ++ '/':abi target) $ name dev
-  adbCmdAs_ (name dev) projectName [gdbserver, "--attach", ":1234", pid]
-
+  
+  runGdbServer (output ++ '/':abi target) projectName $ name dev
   C.threadDelay $ 1000*1000
   let gdbBin' = concat ["./", output, '/':cpuAbi dev, "/bin/", gdb target]
 
@@ -55,6 +51,19 @@ gdbMain mDev projectName output libSearchPath targets = do
 
   return ()
 
+runGdbServer :: FilePath -> String -> String -> IO ()
+runGdbServer toolchainRoot projectName dev = do
+  findPid dev "gdbserver" >>= onMaybe (\pid -> M.void $ adbCmd dev ["kill", "-9", pid])
+  
+
+  _ <- adbForward dev
+  Just pid <- findPid dev projectName
+
+  gdbserver <- pushGdbServerIfMissing toolchainRoot dev
+  adbCmdAs_ dev projectName [gdbserver, "--attach", ":1234", pid]
+  where onMaybe _ Nothing = return ()
+        onMaybe m (Just pid) = m pid
+          
 
 pushGdbServerIfMissing :: FilePath -> String -> IO FilePath
 pushGdbServerIfMissing toolchainRoot dev = do
