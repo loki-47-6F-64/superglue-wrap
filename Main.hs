@@ -8,11 +8,14 @@ import GHC.Generics
 
 import System.Environment
 
+import qualified Control.Monad as M
+
 import Common
 import Download
 import Extract
 import Debug
 import Build
+import ArchVars
 
 
 class Cmd a where
@@ -47,7 +50,7 @@ _init = do
   config <- readConfig "config.json"
   print config
 
-  downloadToolchain "Linux 64-bit (x86)" output >>= \x -> extractToolchain output x $ targets config
+  downloadToolchain osArch output >>= \x -> extractToolchain output x $ targets config
 
 
 _build :: CmdBuild -> IO ()
@@ -84,7 +87,7 @@ _gdb args = do
     (targets config)
   
 _test :: Args -> IO ()
-_test _ = readConfig "config.json" >>= print
+_test _ = readConfig "config.json" >> print osArch
 
 
 main' :: Args -> IO ()
@@ -94,7 +97,15 @@ main' (x:args)
   | x == "external" = _external $ fromArgs args
   | x == "gdb"      = _gdb   args
   | x == "test"     = _test  args
-  | otherwise = fail "Unknown cmd"
+  | otherwise = printL [
+      "Usage: superglue cmd",
+      "  init         - initialize repository",
+      "  build        - self explanatory",
+      "  external     - Build external projects",
+      "  gdb <device> - attach to the process on android"]
+
+printL :: [String] -> IO ()
+printL = M.mapM_ print
 
 main :: IO ()
 main = getArgs >>= main'
