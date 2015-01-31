@@ -3,7 +3,6 @@
 import qualified Data.Aeson as JSON
 import Data.Functor
 import qualified Data.ByteString.Lazy as LB
-import qualified Control.Monad as M
 
 import GHC.Generics
 
@@ -14,6 +13,18 @@ import Download
 import Extract
 import Debug
 import Build
+
+
+class Cmd a where
+  fromArgs :: Cmd a => Args -> a
+
+data CmdBuild = CmdBuild {
+  build :: !String
+} deriving (Show)
+
+instance Cmd CmdBuild where
+  fromArgs []     = CmdBuild "debug"
+  fromArgs (x:xs) = (fromArgs xs) { build = x }
 
 
 data Config = Config {
@@ -39,16 +50,22 @@ _init = do
   downloadToolchain "Linux 64-bit (x86)" output >>= \x -> extractToolchain output x $ targets config
 
 
-_build :: Args -> IO ()
+_build :: CmdBuild -> IO ()
 _build args = do
   config <- readConfig "config.json"  
 
-  let buildType = if "release" `elem` args then "release" else "debug"
-  M.unless ("init" `notElem` args) $ buildExternal buildType (androidProjectRoot config) output
-    
-
+  let buildType = build args
   buildMain buildType (androidProjectRoot config) output (targets config)
   
+
+_external :: CmdBuild -> IO ()
+_external args = do
+  config <- readConfig "config.json"
+
+  let buildType = build args
+  buildExternal buildType (androidProjectRoot config) output
+
+  _build args
 
 _gdb :: Args -> IO ()
 _gdb args = do
@@ -72,10 +89,11 @@ _test _ = readConfig "config.json" >>= print
 
 main' :: Args -> IO ()
 main' (x:args)
-  | x == "init"  = _init
-  | x == "build" = _build args
-  | x == "gdb"   = _gdb   args
-  | x == "test"  = _test  args
+  | x == "init"     = _init
+  | x == "build"    = _build $ fromArgs args
+  | x == "external" = _external $ fromArgs args
+  | x == "gdb"      = _gdb   args
+  | x == "test"     = _test  args
   | otherwise = fail "Unknown cmd"
 
 main :: IO ()
