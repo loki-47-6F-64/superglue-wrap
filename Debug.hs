@@ -40,13 +40,12 @@ gdbMain mDev projectName output libSearchPath targets = do
   
   runGdbServer (output ++ '/':abi target) projectName $ name dev
   C.threadDelay $ 1000*1000
-  let gdbBin' = concat ["./", output, '/':cpuAbi dev, "/bin/", gdb target]
+  let gdbBin' = concat ["./", output, '/':abi target, "/bin/", gdb target]
 
-  
   _ <- procM_  gdbBin' [
       "-iex","set auto-solib-add on",
       "-ex", "target remote :1234",
-      "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':cpuAbi dev]
+      "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':abi target]
     ]
 
   return ()
@@ -69,7 +68,8 @@ pushGdbServerIfMissing :: FilePath -> String -> IO FilePath
 pushGdbServerIfMissing toolchainRoot dev = do
   let dataDir = "/data/local/tmp"
 
-  binsSys  <- M.liftM (lines . hout) $ adbCmd dev ["ls", "/system/bin"]
+  binsSys  <- M.liftM (map init . lines . hout) $ adbCmd dev ["ls", "/system/bin"]
+
   ifElse ("gdbserver" `notElem` binsSys) 
     (do
       adbCmd dev ["mkdir", "-p", dataDir]
@@ -96,10 +96,10 @@ devices = do
   M.mapM fromName devNames
 
 adb :: String -> Args -> IO Exit
-adb devName args = procM "adb" $ ("-s" ++ devName):args
+adb devName args = procM "adb" $ "-s":devName:args
 
 adb_ :: String -> Args -> IO ProcessHandle
-adb_ devName args = procMConcurrent "adb" $ ("-s" ++ devName):args
+adb_ devName args = procMConcurrent "adb" $ "-s":devName:args
 
 
 adbCmd :: String -> Args -> IO Exit

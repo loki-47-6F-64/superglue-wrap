@@ -23,12 +23,12 @@ buildMain' buildType projectRoot output target = do
       "-DTOOLCHAIN_ROOT=" ++ output,
       "-DTARGET_ARCH=" ++ abi target,
       "-DCMAKE_TOOLCHAIN_FILE=../../../android.cmake",
-      "-DBUILD_SERVER=ON",
       "../../../"])
     (cmake dir ["../../../"])
 
-  
-  make dir [] >> make dir ["install"]
+  let args = if buildType == "debug" then [] else ["-j4"] in
+    make dir args
+  make dir ["install"]
 
 buildExternal :: String -> FilePath -> FilePath -> IO ()
 buildExternal buildType projectRoot output = do
@@ -44,7 +44,6 @@ buildExternal buildType projectRoot output = do
       "-DCMAKE_INSTALL_PREFIX=../../../" ++ projectRoot,
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
-      "-DBUILD_SERVER=ON",
       "../../../"])
     (cmake dir ["../../../"])
 
