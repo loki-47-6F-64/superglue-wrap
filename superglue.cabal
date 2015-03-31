@@ -19,7 +19,7 @@ executable superglue
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.6 && <4.7, aeson, bytestring, text, http-conduit, html-conduit, xml-conduit, process, directory, cryptohash, base16-bytestring
+  build-depends:       base >=4.6, aeson, bytestring, text, http-conduit, html-conduit, xml-conduit, process, directory, cryptohash, base16-bytestring
   -- hs-source-dirs:      
   default-language:    Haskell2010
   ghc-options: -threaded

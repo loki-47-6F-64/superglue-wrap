@@ -27,7 +27,7 @@ data CmdBuild = CmdBuild {
 
 instance Cmd CmdBuild where
   fromArgs []     = CmdBuild "debug"
-  fromArgs (x:xs) = (fromArgs xs) { build = x }
+  fromArgs (x:xs) = CmdBuild x
 
 
 data Config = Config {
