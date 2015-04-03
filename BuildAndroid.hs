@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Build (buildMain, buildExternal) where
+module BuildAndroid (buildMain, buildExternal) where
 
 import qualified Control.Monad as M
 import System.Directory
@@ -10,7 +10,7 @@ import Common
 
 buildMain' :: String -> FilePath -> FilePath -> Target -> IO ()
 buildMain' buildType projectRoot output target = do
-  let dir = concat ["build/", arch target, '/':buildType]
+  let dir = concat ["build/android/", arch target, '/':buildType]
 
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
@@ -22,9 +22,9 @@ buildMain' buildType projectRoot output target = do
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
       "-DTARGET_ARCH=" ++ abi target,
-      "-DCMAKE_TOOLCHAIN_FILE=../../../android.cmake",
-      "../../../"])
-    (cmake dir ["../../../"])
+      "-DCMAKE_TOOLCHAIN_FILE=../../../../android.cmake",
+      "../../../../"])
+    (cmake dir ["."])
 
   let args = if buildType == "debug" then [] else ["-j4"] in
     make dir args
@@ -32,20 +32,19 @@ buildMain' buildType projectRoot output target = do
 
 buildExternal :: String -> FilePath -> FilePath -> IO ()
 buildExternal buildType projectRoot output = do
-  let dir = "build/external/" ++ buildType
+  let dir = "build/android/external/" ++ buildType
 
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
   ifElse (not exist)
     (cmake dir [
-      "-DCMAKE_BUILD_TYPE=" ++ buildType,
-      "-DBUILD_EXTERNAL_PROJECT=ON",
+      "-DBUILD_EXTERNAL_PROJECT=1",
       "-DCMAKE_INSTALL_PREFIX=../../../" ++ projectRoot,
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
-      "../../../"])
-    (cmake dir ["../../../"])
+      "../../../../"])
+    (cmake dir ["."])
 
   make dir []
 
