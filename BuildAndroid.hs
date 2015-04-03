@@ -18,7 +18,7 @@ buildMain' buildType projectRoot output target = do
   ifElse (not exist)
     (cmake dir [
       "-DCMAKE_BUILD_TYPE=" ++ buildType,
-      "-DCMAKE_INSTALL_PREFIX=../../../" ++ projectRoot,
+      "-DCMAKE_INSTALL_PREFIX=../../../../" ++ projectRoot,
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
       "-DTARGET_ARCH=" ++ abi target,
