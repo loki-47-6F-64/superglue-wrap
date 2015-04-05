@@ -20,16 +20,17 @@ buildMain' buildType platform projectRoot = do
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
+  let install_prefix = "../../../../" ++ projectRoot
   ifElse (not exist)
     (cmake dir [
         "-DCMAKE_BUILD_TYPE=" ++ buildType,
         "-DIOS_PLATFORM=" ++ platform,
         "-DCMAKE_TOOLCHAIN_FILE=../../../../iOS.cmake",
-        "-DCMAKE_INSTALL_PREFIX=../../../../" ++ projectRoot,
+        "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix,
         "-GXcode",
         "../../../../"
       ])
-    (cmake dir ["."])
+    (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   xcodebuild dir "install" buildType' []
 
@@ -40,15 +41,16 @@ buildExternal projectRoot = do
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
+  let install_prefix = "../../../../" ++ projectRoot
   ifElse (not exist)
     (cmake dir [
         "-DBUILD_EXTERNAL_PROJECT=1",
-        "-DCMAKE_INSTALL_PREFIX=../../../" ++ projectRoot,
+        "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix,
         "-DTARGET_PLATFORM=IOS",
         "-GXcode",
         "../../../"
       ])
-    (cmake dir ["."])
+    (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   xcodebuild dir "install" "Release" []
 

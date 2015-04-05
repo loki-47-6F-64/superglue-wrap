@@ -15,16 +15,18 @@ buildMain' buildType projectRoot output target = do
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
+  let install_prefix = "../../../../" ++ projectRoot
+
   ifElse (not exist)
     (cmake dir [
       "-DCMAKE_BUILD_TYPE=" ++ buildType,
-      "-DCMAKE_INSTALL_PREFIX=../../../../" ++ projectRoot,
+      "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix, 
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
       "-DTARGET_ARCH=" ++ abi target,
       "-DCMAKE_TOOLCHAIN_FILE=../../../../android.cmake",
       "../../../../"])
-    (cmake dir ["."])
+    (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   let args = if buildType == "debug" then [] else ["-j4"] in
     make dir args
@@ -37,14 +39,16 @@ buildExternal buildType projectRoot output = do
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
+  let install_prefix = "../../../../" ++ projectRoot
+
   ifElse (not exist)
     (cmake dir [
       "-DBUILD_EXTERNAL_PROJECT=1",
-      "-DCMAKE_INSTALL_PREFIX=../../../" ++ projectRoot,
+      "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix, 
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
       "../../../../"])
-    (cmake dir ["."])
+    (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   make dir []
 
