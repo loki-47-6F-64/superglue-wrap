@@ -34,12 +34,12 @@ buildMain' buildType projectRoot output target = do
 
 buildExternal :: String -> FilePath -> FilePath -> IO ()
 buildExternal buildType projectRoot output = do
-  let dir = "build/android/external/" ++ buildType
+  let dir = "build/android/external"
 
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
-  let install_prefix = "../../../../" ++ projectRoot
+  let install_prefix = "../../../" ++ projectRoot
 
   ifElse (not exist)
     (cmake dir [
@@ -47,7 +47,7 @@ buildExternal buildType projectRoot output = do
       "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix, 
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
-      "../../../../"])
+      "../../../"])
     (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   make dir []

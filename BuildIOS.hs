@@ -36,12 +36,12 @@ buildMain' buildType platform projectRoot = do
 
 buildExternal :: FilePath -> IO ()
 buildExternal projectRoot = do
-  let dir = concat ["build/ios/external"]
+  let dir = "build/ios/external"
 
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir
 
-  let install_prefix = "../../../../" ++ projectRoot
+  let install_prefix = "../../../" ++ projectRoot
   ifElse (not exist)
     (cmake dir [
         "-DBUILD_EXTERNAL_PROJECT=1",
