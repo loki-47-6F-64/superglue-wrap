@@ -44,7 +44,7 @@ buildExternal projectRoot = do
   let install_prefix = "../../../" ++ projectRoot
   ifElse (not exist)
     (cmake dir [
-        "-DBUILD_EXTERNAL_PROJECT=1",
+        "-DBUILD_EXTERNAL_MULTI_ARCH=1",
         "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix,
         "-DTARGET_PLATFORM=IOS",
         "-GXcode",

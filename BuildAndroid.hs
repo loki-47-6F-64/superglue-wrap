@@ -23,7 +23,7 @@ buildMain' buildType projectRoot output target = do
       "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix, 
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
-      "-DTARGET_ARCH=" ++ abi target,
+      "-DTARGET_ABI=" ++ abi target,
       "-DCMAKE_TOOLCHAIN_FILE=../../../../android.cmake",
       "../../../../"])
     (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
@@ -43,7 +43,7 @@ buildExternal buildType projectRoot output = do
 
   ifElse (not exist)
     (cmake dir [
-      "-DBUILD_EXTERNAL_PROJECT=1",
+      "-DBUILD_EXTERNAL_MULTI_ARCH=1",
       "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix, 
       "-DTARGET_PLATFORM=ANDROID",
       "-DTOOLCHAIN_ROOT=" ++ output,
