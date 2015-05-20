@@ -32,26 +32,31 @@ gdbMain mDev projectName output libSearchPath targets = do
   let target = (head . filter (\x -> cpuAbi dev == abi x)) targets
 
   dir <- getAppUserDataDirectory "superglue" >>= \x -> return $ concat [x, "/devices/", name dev]
+  -- let dir = output ++ '/':abi target ++ "/sysroot/usr/lib/"
 
   exist <- doesDirectoryExist dir
   M.unless exist $
-    M.void $ adbPull (name dev) "/system/lib" dir
+    mapM_ (\x -> M.void $ adbPull (name dev) ("/system/lib/" ++ x) (dir ++ '/':x) ) ["libc.so", "libstdc++.so"]
 
   
-  runGdbServer (output ++ '/':abi target) projectName $ name dev
-  C.threadDelay $ 1000*1000
   let gdbBin' = concat ["./", output, '/':abi target, "/bin/", gdb target]
 
-  _ <- procM_  gdbBin' [
+  cmd <- prepGdbServer (output ++ '/':abi target) projectName $ name dev
+  _ <- procMCtlc  gdbBin' [
       "-iex","set auto-solib-add on",
+      "-ex" , "shell " ++ cmd ++ " &",
+      "-ex", "shell sleep 1",
       "-ex", "target remote :1234",
       "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':abi target]
     ]
 
   return ()
+  where onMaybe _ Nothing = return ()
+        onMaybe m (Just pid) = m pid
 
-runGdbServer :: FilePath -> String -> String -> IO ()
-runGdbServer toolchainRoot projectName dev = do
+
+prepGdbServer :: FilePath -> String -> String -> IO String
+prepGdbServer toolchainRoot projectName dev = do
   findPid dev "gdbserver" >>= onMaybe (\pid -> M.void $ adbCmd dev ["kill", "-9", pid])
   
 
@@ -59,7 +64,7 @@ runGdbServer toolchainRoot projectName dev = do
   Just pid <- findPid dev projectName
 
   gdbserver <- pushGdbServerIfMissing toolchainRoot dev
-  adbCmdAs_ dev projectName [gdbserver, "--attach", ":1234", pid]
+  return $ "adb -s emulator-5554 shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
   where onMaybe _ Nothing = return ()
         onMaybe m (Just pid) = m pid
           

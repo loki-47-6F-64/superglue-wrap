@@ -29,8 +29,8 @@ buildMain' buildType projectRoot output target = do
     (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   let args = if buildType == "debug" then [] else ["-j4"] in
-    make dir args
-  make dir ["install"]
+    make dir ("install":args)
+--  make dir ["install"]
 
 buildExternal :: String -> FilePath -> FilePath -> IO ()
 buildExternal buildType projectRoot output = do

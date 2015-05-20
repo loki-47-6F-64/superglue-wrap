@@ -7,6 +7,7 @@ module Common (
   procDir,
   procM,
   procM_,
+  procMCtlc,
   procMConcurrent,
   close,
   close_,
@@ -79,8 +80,17 @@ procM bin args = do
     code = code'
   }
 
+procMCtlc :: FilePath -> Args -> IO ExitCode
+procMCtlc bin args = procCtlc Nothing bin args >>= close
+
 procDir :: FilePath -> FilePath -> Args -> IO ProcessHandle
 procDir = proc' . Just
+
+procCtlc :: Maybe FilePath -> FilePath -> Args -> IO ProcessHandle
+procCtlc cwd' bin args = createProcess (proc bin args) {
+  cwd = cwd',
+  delegate_ctlc = True
+} >>= \(_,_,_, handle) -> return handle
 
 proc' :: Maybe FilePath -> FilePath -> Args -> IO ProcessHandle
 proc' cwd' bin args = createProcess (proc bin args) {
