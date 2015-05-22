@@ -51,7 +51,7 @@ initialize output ndkRoot = mapM_ (\target ->
 
 toArgs :: FilePath -> FilePath -> Target -> Args
 toArgs output ndkRoot target = [
-            "--platform=android-21",
+            "--platform=android-16",
             "--toolchain=" ++ toolchain target,
             "--ndk-dir=" ++ ndkRoot,
             "--arch=" ++ arch target,
