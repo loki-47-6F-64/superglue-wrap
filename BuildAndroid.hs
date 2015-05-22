@@ -50,7 +50,7 @@ buildExternal buildType projectRoot output = do
       "../../../"])
     (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
-  make dir ["-j4", "install"]
+  make dir ["install"]
 
 
 buildMain :: String -> FilePath -> FilePath -> [Target] -> IO ()
