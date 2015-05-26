@@ -65,6 +65,8 @@ findDownload :: String -> [Download] -> Download
 findDownload hostType = unjust . L.find (\x -> host x == hostType)
   where unjust x
           | isJust x  = fromJust x
+          -- Ugly hack
+          | hostType == "Mac OS X 64-bit" = fromContent "output" ["Mac OS X 64-bit", "android-ndk-r10e-darwin-x86_64.bin", "2cb8893a5701603519d38a7e04c50e81"]
           | otherwise = error ("Unknown hostType: " ++ hostType)
 
 
