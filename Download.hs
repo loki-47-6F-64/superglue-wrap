@@ -51,7 +51,7 @@ downloadToolchain hostType' output = do
 
 getHTML :: IO Cursor
 getHTML =
-  M.liftM (fromDocument . HTML.parseLBS) $ HTTP.simpleHttp "https://developer.android.com/tools/sdk/ndk/index.html"
+  M.liftM (fromDocument . HTML.parseLBS) $ HTTP.simpleHttp "https://developer.android.com/ndk/downloads/index.html"
 
 
 findTable :: Cursor -> [Cursor]
