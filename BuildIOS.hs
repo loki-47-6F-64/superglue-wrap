@@ -75,7 +75,9 @@ libtool buildType projectRoot lib = do
   let dirOS  = "libs/OS/" ++ buildType ++ "/"
   let dirSim = "libs/SIMULATOR/" ++ buildType ++ "/"
 
+  createDirectoryIfMissing True dir
   procM_ "libtool" ["-static", "-o", dir ++ lib, dirOS ++ lib, dirSim ++ lib]
+
   return ()
 
 xcodebuild :: FilePath -> String -> String -> Args -> IO ()
