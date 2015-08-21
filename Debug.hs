@@ -44,6 +44,9 @@ gdbMain mDev projectName output libSearchPath targets = do
   cmd <- prepGdbServer (output ++ '/':abi target) projectName $ name dev
   _ <- procMCtlc  gdbBin' [
       "-iex","set auto-solib-add on",
+      "-ex" , "handle SIGILL nostop",
+      -- Prevent SIGILL in arv7 on [next]
+      "-ex", "set arm abi AAPCS",
       "-ex" , "shell " ++ cmd ++ " &",
       "-ex", "shell sleep 1",
       "-ex", "target remote :1234",
