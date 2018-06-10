@@ -17,7 +17,14 @@ cabal-version:       >=1.10
 
 executable superglue
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:
+                ArchVars
+                BuildAndroid
+                BuildIOS
+                Common
+                Debug
+                Download
+                Extract
   -- other-extensions:    
   build-depends:       base >=4.6, aeson, bytestring, text, http-conduit, html-conduit, xml-conduit, process, directory, cryptohash, base16-bytestring, process >= 1.2
   -- hs-source-dirs:      

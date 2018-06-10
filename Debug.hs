@@ -67,7 +67,9 @@ prepGdbServer toolchainRoot projectName dev = do
   Just pid <- findPid dev projectName
 
   gdbserver <- pushGdbServerIfMissing toolchainRoot dev
-  return $ "adb -s " ++ dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
+  print $ "adb -s " ++ dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
+
+  return $ "adb -s " ++ dev  ++ " shell " ++ gdbserver ++ " --attach :1234 " ++ pid
   where onMaybe _ Nothing = return ()
         onMaybe m (Just pid) = m pid
           

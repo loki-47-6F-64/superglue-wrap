@@ -20,7 +20,7 @@ import ArchVars
 
 
 class Cmd a where
-  fromArgs :: Cmd a => Args -> a
+  fromArgs :: Args -> a
 
 data CmdBuild = CmdBuild {
   build :: !String
@@ -130,6 +130,7 @@ _test _ = readConfig "config.json" >>= print
 
 
 main' :: Args -> IO ()
+main' [] = main' ["help"]
 main' (x:args)
   | x == "android" = mainAndroid args
   | x == "ios"     = mainIOS args
