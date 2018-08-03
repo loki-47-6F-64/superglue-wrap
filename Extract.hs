@@ -6,6 +6,7 @@ import System.Exit
 import System.Directory
 
 import qualified Control.Monad as M
+import qualified Codec.Archive.Zip as Zip
 
 import Common
 
@@ -14,21 +15,16 @@ extractToolchain :: FilePath -> FilePath -> [Target] -> IO ()
 extractToolchain output bin targets = extractBin output bin >>= initialize' output targets
   where initialize' x z y = initialize x y z
 
-
-modPermission :: (Permissions -> Permissions) -> FilePath -> IO ()
+modPermission :: (Permissions -> Permissions) -> FilePath -> IO ()                                                                                                                                      
 modPermission f filePath = getPermissions filePath >>= setPermissions filePath . f
 
 extractBin :: FilePath -> FilePath -> IO FilePath
 extractBin output bin = do
-  modPermission (setOwnerExecutable True) bin
-  exitCode <- procM_ bin ["-o" ++ outputDir]
+  print $ "Extracting " ++ bin ++ " to " ++ outputDir
+  Zip.withArchive bin $ Zip.unpackInto outputDir
+  dir <- M.liftM (head . filter (\x -> head x /= '.')) $ getDirectoryContents outputDir
 
-  if exitCode == ExitSuccess then do
-    dir <- M.liftM (head . filter (\x -> head x /= '.')) $ getDirectoryContents outputDir
-
-    (return . concat) [outputDir, '/':dir]
-  else
-    fail "Error extracting toolchain"
+  (return . concat) [outputDir, '/':dir]
 
   where outputDir = output ++ "/toolchain"
 
@@ -41,19 +37,22 @@ copyToolchain bin args = do
 
 
 initialize :: FilePath -> FilePath -> [Target] -> IO ()
-initialize output ndkRoot = mapM_ (\target ->
-    copyToolchain makeStandalone (toArgs' target) >> 
-      copyFile (concat [ndkRoot,"/prebuilt/android-", arch target, "/gdbserver/gdbserver"])
-               (concat [output, '/':abi target, "/bin/gdbserver"])
+initialize output ndkRoot = mapM_ (\target -> do
+    let gdbserver       = concat [ndkRoot,"/prebuilt/android-", arch target, "/gdbserver/gdbserver"]
+    let gdbserverTarget = concat [output, '/':abi target, "/bin/gdbserver"]
+
+    modPermission (setOwnerExecutable True) makeStandalone
+    print ("Executing " ++ makeStandalone)
+    copyToolchain makeStandalone (toArgs' target)
+    print ("Copying " ++ gdbserver ++ " to " ++ gdbserverTarget)
+    copyFile gdbserver gdbserverTarget
   )
-  where makeStandalone = ndkRoot ++ "/build/tools/make-standalone-toolchain.sh"
+  where makeStandalone = ndkRoot ++ "/build/tools/make_standalone_toolchain.py"
         toArgs' = toArgs output ndkRoot
 
 toArgs :: FilePath -> FilePath -> Target -> Args
 toArgs output ndkRoot target = [
-            "--platform=android-16",
-            "--toolchain=" ++ toolchain target,
-            "--ndk-dir=" ++ ndkRoot,
-            "--arch=" ++ arch target,
-    concat ["--install-dir=",output,'/':abi target]
+            "--api", "16",
+            "--arch", arch target,
+            "--install-dir", output ++ '/':abi target
   ]

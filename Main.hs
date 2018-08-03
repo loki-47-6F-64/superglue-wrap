@@ -16,8 +16,8 @@ import Extract
 import Debug
 import qualified BuildAndroid as Android
 import qualified BuildIOS as IOS
-import ArchVars
 
+import ArchVars
 
 class Cmd a where
   fromArgs :: Args -> a
@@ -30,11 +30,17 @@ instance Cmd CmdBuild where
   fromArgs []     = CmdBuild "debug"
   fromArgs (x:xs) = CmdBuild x
 
+data NDK = NDK {
+  version       :: !String,
+  linuxChecksum :: !String,
+  macChecksum   :: !String
+} deriving (Show, Generic)
 
 data Android = Android {
-  targets      :: ![Target],
+  targets       :: ![Target],
   aProjectRoot  :: !String,
-  aProjectName  :: !String
+  aProjectName  :: !String,
+  ndk           :: !NDK
 } deriving (Show, Generic)
 
 data IOS = IOS {
@@ -47,6 +53,7 @@ data Config = Config {
   ios     :: !(Maybe IOS)
 } deriving (Show, Generic)
 
+instance JSON.FromJSON NDK
 instance JSON.FromJSON IOS
 instance JSON.FromJSON Android
 instance JSON.FromJSON Config
@@ -79,13 +86,19 @@ i_external args = do
 
   i_build args
 
+aChecksum :: (NDK -> String)
+aChecksum
+  | osArch == linux  = linuxChecksum
+  | osArch == darwin = macChecksum
+
 a_init :: IO ()
 a_init = do
   config <- readConfig "config.json"
   print config
 
   let Just androidConfig = android config
-  downloadToolchain osArch output >>= \x -> extractToolchain output x $ targets androidConfig
+  let ndk' = ndk androidConfig
+  downloadToolchain output (version ndk' ++ '-':osArch) (aChecksum ndk') >>= \x -> extractToolchain output x $ targets androidConfig
 
 
 a_build :: CmdBuild -> IO ()

@@ -2,11 +2,9 @@
 
 module Download (downloadToolchain) where
 
-import qualified Crypto.Hash.MD5 as MD5
+import qualified Crypto.Hash.SHA1 as SHA1
 
 import qualified Network.HTTP.Conduit as HTTP
-import qualified Text.HTML.DOM as HTML
-import Text.XML.Cursor
 import Data.Maybe
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -21,72 +19,49 @@ import qualified Control.Monad as M
 
 import Common
 data Download = Download {
-  host     :: String,
   bin      :: String,
-  href     :: String,
-  checksum :: String
+  href     :: String
 } deriving (Show)
 
-fromContent :: FilePath -> [String] -> Download
-fromContent output (host':bin':checksum':_) = Download {
-  host     = host',
+fromContent :: FilePath -> String -> Download
+fromContent output bin' = Download {
   bin      = "./" ++ output ++ '/':bin',
-  href     = "http://dl.google.com/android/ndk/" ++ bin',
-  checksum = checksum'
+  href     = "http://dl.google.com/android/repository/android-ndk-" ++ bin' ++ ".zip"
 }
 
-downloadToolchain :: String -> FilePath -> IO FilePath
-downloadToolchain hostType' output = do
-  print ("Search Download parameters" :: String)
-  down <- M.liftM (findDownload hostType' . findDownloads output) getHTML
-
-  
+downloadToolchain :: FilePath -> String -> String -> IO FilePath
+downloadToolchain output ndk checksum = do
+  let down = fromContent output ndk
   createDirectoryIfMissing True output
-  print ("Downloading..." :: String)
-  downloadIfMissing (checksum down) (href down) (bin down)
+  downloadIfMissing checksum (href down) (bin down)
   
 
   (return . bin) down
 
-
-getHTML :: IO Cursor
-getHTML =
-  M.liftM (fromDocument . HTML.parseLBS) $ HTTP.simpleHttp "https://developer.android.com/ndk/downloads/index.html"
-
-
-findTable :: Cursor -> [Cursor]
-findTable = element "table" >=> attributeIs "id" "download-table" >=> child >=> element "tr"
-
-findDownloads :: FilePath -> Cursor -> [Download]
-findDownloads output c = map (fromContent output . map T.unpack . sanitize . ($// content)) (tail $ ($// findTable) c)
-  where sanitize (_:x:_:_:y:_:_:_:_:z:_) = [x,y,z]
-
-findDownload :: String -> [Download] -> Download
-findDownload hostType = unjust . L.find (\x -> host x == hostType)
-  where unjust x
-          | isJust x  = fromJust x
-          -- Ugly hack
-          | hostType == "Mac OS X 64-bit" = fromContent "output" ["Mac OS X 64-bit", "android-ndk-r10e-darwin-x86_64.bin", "2cb8893a5701603519d38a7e04c50e81"]
-          | otherwise = error ("Unknown hostType: " ++ hostType)
-
-
 downloadIfMissing :: String -> String -> FilePath -> IO ()
-downloadIfMissing md5 url bin' =
+downloadIfMissing sha1 url bin' =
   ifElseM (doesFileExist bin')
-    (unlessM (M.liftM (== md5) $ md5sum' bin')
-      (download url bin') >>
-        unlessM (M.liftM (== md5) $ md5sum' bin')
-          (fail $ concat ["Checksum of '", bin', "' doesn't match '", md5,"'"])
+    (unlessM (M.liftM (== sha1) $ sha1sum' bin')
+      (download url bin') >> print ("Checking checksum...") >>
+        unlessM (M.liftM (== sha1) $ sha1sum' bin')
+          (fail $ concat ["Checksum of '", bin', "' doesn't match '", sha1,"'"])
     )
-    (download url bin')
+
+    (download url bin' >> print ("Checking checksum...") >>
+      unlessM (M.liftM (== sha1) $ sha1sum' bin')
+        (fail $ concat ["Checksum of '", bin', "' doesn't match '", sha1,"'"])
+    )
+
 
 
 download :: String -> FilePath -> IO ()
-download url filePath = HTTP.simpleHttp url >>= LB.writeFile filePath
+download url filePath = do
+  print ("Downloading... (" ++ url ++ ")")
+  HTTP.simpleHttp url >>= LB.writeFile filePath
 
 
-md5sum' :: FilePath -> IO String
-md5sum' = M.liftM B8.unpack . md5sum
+sha1sum' :: FilePath -> IO String
+sha1sum' = M.liftM B8.unpack . sha1sum
 
-md5sum :: FilePath -> IO B.ByteString
-md5sum filePath = M.liftM (B16.encode . MD5.hash) (B.readFile filePath)
+sha1sum :: FilePath -> IO B.ByteString
+sha1sum filePath = M.liftM (B16.encode . SHA1.hash) (B.readFile filePath)

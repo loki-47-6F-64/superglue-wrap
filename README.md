@@ -1,5 +1,5 @@
 1. Go to root of the project
-2. brew install ghc cabal-install
+2. install ghc cabal-install
 
 ### If you're running on the mac, make sure to follow these instructions
 3. ghc-pkg describe rts > rts.pkg
@@ -31,3 +31,5 @@ It will invoke cmake ones for every target specified.
 
 It works only on Android.
 If you need to debug from the moment the app stops, you could put a breakpoint at the start of the app. Then invoke gdb.
+
+python must be installed for make_standalone_toolchain.py
