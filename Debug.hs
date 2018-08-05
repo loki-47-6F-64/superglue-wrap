@@ -69,33 +69,29 @@ prepGdbServer toolchainRoot projectName dev = do
   _ <- adbForward dev
   Just pid <- findPid dev projectName >>= (\x -> if isJust x then return x else (fail ("Could not find " ++ projectName)))
 
-  gdbserver <- pushGdbServerIfMissing toolchainRoot dev
+  gdbserver <- pushGdbServerIfMissing toolchainRoot projectName dev
 
-  print $ "adb -s " ++ dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
+  let cmd = "adb -s " ++ dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
+  print cmd
+  return cmd
 
-  return $ "adb -s " ++ dev  ++ " shell " ++ gdbserver ++ " --attach :1234 " ++ pid
   where onMaybe _ Nothing = return ()
         onMaybe m (Just pid) = m pid
           
 
-pushGdbServerIfMissing :: FilePath -> String -> IO FilePath
-pushGdbServerIfMissing toolchainRoot dev = do
-  let dataDir = "/data/local/tmp"
+pushGdbServerIfMissing :: FilePath -> String -> String -> IO FilePath
+pushGdbServerIfMissing toolchainRoot projectName dev = do
+  let dataDir = "/data/data/" ++ projectName
 
-  binsSys  <- M.liftM (map init . lines . hout) $ adbCmd dev ["ls", "/system/bin"]
+  binsData <- M.liftM (map init . lines . hout) $ adbCmd' dev ["ls", dataDir]
 
-  ifElse ("gdbserver" `notElem` binsSys) 
-    (do
-      adbCmd dev ["mkdir", "-p", dataDir]
-      binsData <- M.liftM (map init . lines . hout) $ adbCmd dev ["ls", dataDir]
-
-      M.unless ("gdbserver" `elem` binsData) (
-        print ("gdbserver not found: pushing " ++ toolchainRoot ++ "/bin/gdbserver to " ++ dataDir ++ "/gdbserver") >>
-        adbPush dev (toolchainRoot ++ "/bin/gdbserver") (dataDir ++ "/gdbserver") >> return ()
-        )
-      return (dataDir ++ "/gdbserver")
+  M.unless ("gdbserver" `elem` binsData) (
+    print ("gdbserver not found: pushing " ++ toolchainRoot ++ "/bin/gdbserver to " ++ dataDir ++ "/gdbserver") >>
+    adbPushAs dev projectName (toolchainRoot ++ "/bin/gdbserver") (dataDir ++ "/gdbserver") >> return ()
     )
-    (return "/system/bin/gdbserver")
+  return (dataDir ++ "/gdbserver")
+  
+  where adbCmd' = adbCmdAs projectName
 
 
 findPid :: String -> String -> IO (Maybe String)
@@ -123,11 +119,11 @@ adbCmd devName args = adb devName ("shell":args)
 adbCmd_ :: String -> Args -> IO ()
 adbCmd_ devName args = M.void $ adb_ devName ("shell":args)
 
---adbCmdAs :: String -> String -> Args -> IO Exit
---adbCmdAs dev projectName args = adbCmd dev $ ["run-as", projectName] ++ args
-
 adbCmdAs_ :: String -> String -> Args -> IO ()
 adbCmdAs_ dev projectName args = adbCmd_ dev $ ["run-as", projectName] ++ args
+
+adbCmdAs :: String -> String -> Args -> IO Exit
+adbCmdAs dev projectName args = adbCmd dev $ ["run-as", projectName] ++ args
 
 adbForward :: String -> IO ExitCode
 adbForward devName = adb_ devName ["forward", "tcp:1234", "tcp:1234"] >>= close
@@ -137,6 +133,14 @@ adbPull devName in' out' = adb_ devName ["pull", in', out'] >>= close
 
 adbPush :: String -> FilePath -> FilePath -> IO ExitCode
 adbPush devName in' out' = adb_ devName ["push", in', out'] >>= close
+
+adbPushAs :: String -> String -> FilePath -> FilePath -> IO ExitCode
+adbPushAs dev projectName in' out' = adbPush dev in' tmp >>= (\x ->
+  if x /= ExitSuccess then return x else (
+    adbCmdAs dev projectName ["cp", tmp, out'] >>= return . code >>= (\y ->
+    if y /= ExitSuccess then return y else adbCmd dev ["rm", tmp] >>= return . code
+      )))
+  where tmp = "/data/local/tmp/temporary"
 
 findMap :: Eq b => (a -> b) -> [a] -> b -> Maybe a
 findMap f xs e = find ((==) e . f) xs
