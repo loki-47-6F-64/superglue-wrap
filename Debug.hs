@@ -34,14 +34,10 @@ gdbMain mDev projectName output libSearchPath targets = do
 
 
   dir <- getAppUserDataDirectory "superglue" >>= \x -> return $ concat [x, "/devices/", name dev]
-  -- let dir = output ++ '/':abi target ++ "/sysroot/usr/lib/"
 
-  -- //TODO Ensure directory is created if not exist
   exist <- doesDirectoryExist dir
-  M.unless exist $ fail ("Error, the dir " ++ dir ++ "does not exist")
-  mapM_ (\x -> M.void $ adbPull (name dev) ("/system/lib/" ++ x) (dir ++ '/':x) ) ["libc.so", "libstdc++.so", "libc++.so"]
+  M.unless exist $ pullBinaries dev dir
 
-  
   let gdbBin' = concat ["./", output, '/':abi target, "/bin/", gdb target]
 
   cmd <- prepGdbServer (output ++ '/':abi target) projectName $ name dev
@@ -52,18 +48,27 @@ gdbMain mDev projectName output libSearchPath targets = do
       "-ex", "set arm abi AAPCS",
       "-ex" , "shell " ++ cmd ++ " &",
       "-ex", "shell sleep 1",
+      "-ex", "set sysroot " ++ dir,
       "-ex", "target remote :1234",
-      "-ex", concat ["set solib-search-path ", dir, ':':libSearchPath, '/':abi target]
+      "-ex", concat ["set solib-search-path ", dir ++ "/lib", ':':libSearchPath, '/':abi target]
     ]
 
   return ()
   where onMaybe _ Nothing = return ()
         onMaybe m (Just pid) = m pid
 
+pullBinaries :: Device -> FilePath -> IO ()
+pullBinaries dev root = do
+  createDirectoryIfMissing True $ root ++ "/system/lib"
+  createDirectoryIfMissing True $ root ++ "/system/bin"
+
+  mapM_ (\x -> M.void $ adbPull (name dev) ("/system/lib/" ++ x) (root ++ "/system/lib/" ++ x) ) ["libc.so", "libstdc++.so", "libc++.so", "libm.so", "libdl.so"]
+  mapM_ (\x -> M.void $ adbPull (name dev) ("/system/bin/" ++ x) (root ++ "/system/bin/" ++ x) ) ["linker", "linker64","app_process32", "app_process64", "app_process"]
+
 
 prepGdbServer :: FilePath -> String -> String -> IO String
 prepGdbServer toolchainRoot projectName dev = do
-  findPid dev "gdbserver" >>= onMaybe (\pid -> M.void $ adbCmd dev ["kill", "-9", pid])
+  findPid dev "gdbserver" >>= onMaybe (\pid -> M.void $ adbCmdAs dev projectName ["kill", "-9", pid])
   
 
   _ <- adbForward dev
@@ -83,7 +88,7 @@ pushGdbServerIfMissing :: FilePath -> String -> String -> IO FilePath
 pushGdbServerIfMissing toolchainRoot projectName dev = do
   let dataDir = "/data/data/" ++ projectName
 
-  binsData <- M.liftM (map init . lines . hout) $ adbCmd' dev ["ls", dataDir]
+  binsData <- M.liftM (lines . hout) $ adbCmd' dev ["ls", dataDir]
 
   M.unless ("gdbserver" `elem` binsData) (
     print ("gdbserver not found: pushing " ++ toolchainRoot ++ "/bin/gdbserver to " ++ dataDir ++ "/gdbserver") >>
@@ -91,7 +96,7 @@ pushGdbServerIfMissing toolchainRoot projectName dev = do
     )
   return (dataDir ++ "/gdbserver")
   
-  where adbCmd' = adbCmdAs projectName
+  where adbCmd' dev = adbCmdAs dev projectName
 
 
 findPid :: String -> String -> IO (Maybe String)
