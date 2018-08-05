@@ -3,6 +3,7 @@
 module Debug (Device(..), gdbMain, devices) where
 
 import Data.List
+import Data.Maybe
 import qualified Control.Monad as M
 import System.Directory
 import System.Process
@@ -31,12 +32,14 @@ gdbMain mDev projectName output libSearchPath targets = do
   let Just dev = maybe ((Just . head) devices') (findMap name devices') mDev
   let target = (head . filter (\x -> cpuAbi dev == abi x)) targets
 
+
   dir <- getAppUserDataDirectory "superglue" >>= \x -> return $ concat [x, "/devices/", name dev]
   -- let dir = output ++ '/':abi target ++ "/sysroot/usr/lib/"
 
+  -- //TODO Ensure directory is created if not exist
   exist <- doesDirectoryExist dir
-  M.unless exist $
-    mapM_ (\x -> M.void $ adbPull (name dev) ("/system/lib/" ++ x) (dir ++ '/':x) ) ["libc.so", "libstdc++.so"]
+  M.unless exist $ fail ("Error, the dir " ++ dir ++ "does not exist")
+  mapM_ (\x -> M.void $ adbPull (name dev) ("/system/lib/" ++ x) (dir ++ '/':x) ) ["libc.so", "libstdc++.so", "libc++.so"]
 
   
   let gdbBin' = concat ["./", output, '/':abi target, "/bin/", gdb target]
@@ -64,9 +67,10 @@ prepGdbServer toolchainRoot projectName dev = do
   
 
   _ <- adbForward dev
-  Just pid <- findPid dev projectName
+  Just pid <- findPid dev projectName >>= (\x -> if isJust x then return x else (fail ("Could not find " ++ projectName)))
 
   gdbserver <- pushGdbServerIfMissing toolchainRoot dev
+
   print $ "adb -s " ++ dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
 
   return $ "adb -s " ++ dev  ++ " shell " ++ gdbserver ++ " --attach :1234 " ++ pid
@@ -85,9 +89,10 @@ pushGdbServerIfMissing toolchainRoot dev = do
       adbCmd dev ["mkdir", "-p", dataDir]
       binsData <- M.liftM (map init . lines . hout) $ adbCmd dev ["ls", dataDir]
 
-      M.unless ("gdbserver" `elem` binsData) $
-        print ("gdbserver not found: pushing gdbserver..." :: String) >>
+      M.unless ("gdbserver" `elem` binsData) (
+        print ("gdbserver not found: pushing " ++ toolchainRoot ++ "/bin/gdbserver to " ++ dataDir ++ "/gdbserver") >>
         adbPush dev (toolchainRoot ++ "/bin/gdbserver") (dataDir ++ "/gdbserver") >> return ()
+        )
       return (dataDir ++ "/gdbserver")
     )
     (return "/system/bin/gdbserver")

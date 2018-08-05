@@ -26,7 +26,7 @@ executable superglue
                 Download
                 Extract
   -- other-extensions:    
-  build-depends:       base >=4.6, zip, aeson, bytestring, text, http-conduit, html-conduit, xml-conduit, process, directory, cryptohash, base16-bytestring, process >= 1.2
+  build-depends:       base >=4.6, aeson, bytestring, text, http-conduit, html-conduit, xml-conduit, process, directory, cryptohash, base16-bytestring, process >= 1.2
   -- hs-source-dirs:      
   default-language:    Haskell2010
   ghc-options: -threaded

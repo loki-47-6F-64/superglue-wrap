@@ -32,6 +32,7 @@ instance Cmd CmdBuild where
 
 data NDK = NDK {
   version       :: !String,
+  api           :: !String,
   linuxChecksum :: !String,
   macChecksum   :: !String
 } deriving (Show, Generic)
@@ -98,7 +99,7 @@ a_init = do
 
   let Just androidConfig = android config
   let ndk' = ndk androidConfig
-  downloadToolchain output (version ndk' ++ '-':osArch) (aChecksum ndk') >>= \x -> extractToolchain output x $ targets androidConfig
+  downloadToolchain output (version ndk' ++ '-':osArch) (aChecksum ndk') >>= \archive -> extractToolchain output archive (api ndk') (targets androidConfig)
 
 
 a_build :: CmdBuild -> IO ()
