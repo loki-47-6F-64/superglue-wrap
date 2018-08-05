@@ -2,6 +2,7 @@
 
 module Debug (Device(..), gdbMain, devices) where
 
+import Data.Char
 import Data.List
 import Data.Maybe
 import qualified Control.Monad as M
@@ -18,7 +19,7 @@ data Device = Device {
 
 fromName :: String -> IO Device
 fromName n = do
-  abi' <- M.liftM (init . init . hout) $ adbCmd n ["getprop", "ro.product.cpu.abi"]
+  abi' <- M.liftM (filter (not . isSpace) . hout) $ adbCmd n ["getprop", "ro.product.cpu.abi"]
 
   return Device {
     name = n,
@@ -30,6 +31,9 @@ gdbMain mDev projectName output libSearchPath targets = do
   devices' <- devices
 
   let Just dev = maybe ((Just . head) devices') (findMap name devices') mDev
+
+  print $ cpuAbi dev
+
   let target = (head . filter (\x -> cpuAbi dev == abi x)) targets
 
 
@@ -50,7 +54,7 @@ gdbMain mDev projectName output libSearchPath targets = do
       "-ex", "shell sleep 1",
       "-ex", "set sysroot " ++ dir,
       "-ex", "target remote :1234",
-      "-ex", concat ["set solib-search-path ", dir ++ "/lib", ':':libSearchPath, '/':abi target]
+      "-ex", concat ["set solib-search-path ", libSearchPath, '/':abi target]
     ]
 
   return ()
