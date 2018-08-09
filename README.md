@@ -1,14 +1,6 @@
-1. Go to root of the project
-2. install ghc cabal-install
-
-### If you're running on the mac, make sure to follow these instructions
-3. ghc-pkg describe rts > rts.pkg
-4. open rts.pkg in any text editor: append "/usr/local/lib" to include-dirs
-5. ghc-pkg update rts.pkg
-
-
-6. cabal update
-7. cabal install
+1. ghc cabal-install
+2. cabal update
+3. cabal install
 
 
 

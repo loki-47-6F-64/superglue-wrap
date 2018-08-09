@@ -24,15 +24,16 @@ buildMain' buildType platform projectRoot = do
   ifElse (not exist)
     (cmake dir [
         "-DCMAKE_BUILD_TYPE=" ++ buildType,
+        "-DTARGET_PLATFORM=IOS",
         "-DIOS_PLATFORM=" ++ platform,
-        "-DCMAKE_TOOLCHAIN_FILE=../../../../iOS.cmake",
+        "-DCMAKE_TOOLCHAIN_FILE=../../../../ios-toolchain.cmake",
         "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix,
-        "-GXcode",
         "../../../../"
       ])
     (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
-  xcodebuild dir "install" buildType' []
+  let addArgs = if map toUpper buildType == "RELEASE" then ["-j4"] else []
+  make dir ("install":addArgs)
 
 buildExternal :: FilePath -> IO ()
 buildExternal projectRoot = do
@@ -47,44 +48,44 @@ buildExternal projectRoot = do
         "-DBUILD_EXTERNAL_MULTI_ARCH=1",
         "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix,
         "-DTARGET_PLATFORM=IOS",
-        "-GXcode",
         "../../../"
       ])
     (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
-  xcodebuild dir "install" "Release" []
+  make dir ["install", "-j4"] 
 
 buildMain :: String -> FilePath -> IO ()
 buildMain buildType projectRoot = do
   let buildType' = capitalize buildType
   
-  M.mapM_ (\x -> buildMain' buildType x projectRoot) ["SIMULATOR","OS"]
+  M.mapM_ (\x -> buildMain' buildType x projectRoot) ["SIMULATOR64","OS"]
 
   -- Merge architectures and install them
-  getLibs ("libs/OS/" ++ buildType' ++ "/") >>= mapM_ (libtool buildType' projectRoot) 
+  getLibs ("libs/OS/") >>= mapM_ (libtool projectRoot) 
 
 getLibs :: FilePath -> IO [String]
 getLibs dir = do
   dirContents <- getDirectoryContents dir
 
-  return $ filter (isPrefixOf "lib") $ filter (isSuffixOf ".a") dirContents
+  return $ filter (\x -> isPrefixOf "lib" x && isSuffixOf ".a" x) dirContents
 
-libtool :: String -> FilePath -> FilePath -> IO ()
-libtool buildType projectRoot lib = do 
+libtool :: FilePath -> FilePath -> IO ()
+libtool projectRoot lib = do 
   let dir    = projectRoot ++ "/superglue/libs/"
-  let dirOS  = "libs/OS/" ++ buildType ++ "/"
-  let dirSim = "libs/SIMULATOR/" ++ buildType ++ "/"
+  let dirOS  = "libs/OS/"
+  let dirSim = "libs/SIMULATOR64/"
 
   createDirectoryIfMissing True dir
   procM_ "libtool" ["-static", "-o", dir ++ lib, dirOS ++ lib, dirSim ++ lib]
 
   return ()
 
-xcodebuild :: FilePath -> String -> String -> Args -> IO ()
-xcodebuild dir target configuration args =
-  procDir dir "xcodebuild" ("-target":target:"-configuration":configuration:args) >>= close >>= \exit -> M.unless (ExitSuccess == exit) $
-    fail "xcodebuild failed :("
-
 cmake :: FilePath -> Args -> IO ()
 cmake dir args = procDir dir "cmake" args >>= close >>= (\exit -> M.unless (ExitSuccess == exit) $
   fail "cmake failed :(")
+
+make :: FilePath -> Args -> IO ()
+make dir args =
+  procDir dir "make" args >>= close >>= \exit -> M.unless (ExitSuccess == exit) $
+    fail "Make failed :("
+ 
