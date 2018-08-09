@@ -21,7 +21,7 @@ buildMain' buildType platform projectRoot = do
   createDirectoryIfMissing True dir
 
   let install_prefix = "../../../../" ++ projectRoot
-  ifElse (not exist)
+  M.unless exist
     (cmake dir [
         "-DCMAKE_BUILD_TYPE=" ++ buildType,
         "-DTARGET_PLATFORM=IOS",
@@ -30,7 +30,6 @@ buildMain' buildType platform projectRoot = do
         "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix,
         "../../../../"
       ])
-    (cmake dir [".", "-DCMAKE_INSTALL_PREFIX=" ++ install_prefix])
 
   let addArgs = if map toUpper buildType == "RELEASE" then ["-j4"] else []
   make dir ("install":addArgs)
