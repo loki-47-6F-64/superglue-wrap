@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Debug (Device(..), gdbMain, devices) where
+module Debug (Device(..), gdbMain, gdbServer, devices) where
 
 import Data.Char
 import Data.List
@@ -26,6 +26,31 @@ fromName n = do
     cpuAbi  = abi'
   }
 
+
+gdbServer :: Maybe String -> String -> FilePath -> [Target] -> IO ()
+gdbServer mDev projectName output targets = do
+  devices' <- devices
+
+  let Just dev = maybe ((Just . head) devices') (findMap name devices') mDev
+
+  print $ cpuAbi dev
+
+  let target = (head . filter (\x -> cpuAbi dev == abi x)) targets
+
+
+  dir <- getAppUserDataDirectory "superglue" >>= \x -> return $ concat [x, "/devices/", name dev]
+
+  exist <- doesDirectoryExist dir
+  M.unless exist $ pullBinaries dev dir
+
+  let gdbBin' = concat ["./", output, '/':abi target, "/bin/", gdb target]
+
+  (gdbserver, project_pid) <- prepGdbServer (output ++ '/':abi target) projectName $ name dev
+
+  adbCmdAs_ (name dev) projectName [gdbserver, "--attach", ":1234", project_pid]
+
+ 
+
 gdbMain :: Maybe String -> String -> FilePath -> FilePath -> [Target] -> IO ()
 gdbMain mDev projectName output libSearchPath targets = do
   devices' <- devices
@@ -44,13 +69,13 @@ gdbMain mDev projectName output libSearchPath targets = do
 
   let gdbBin' = concat ["./", output, '/':abi target, "/bin/", gdb target]
 
-  cmd <- prepGdbServer (output ++ '/':abi target) projectName $ name dev
+  (gdbserver, project_pid) <- prepGdbServer (output ++ '/':abi target) projectName $ name dev
   _ <- procMCtlc  gdbBin' [
       "-iex","set auto-solib-add on",
       "-ex" , "handle SIGILL nostop",
       -- Prevent SIGILL in arv7 on [next]
       "-ex", "set arm abi AAPCS",
-      "-ex" , "shell " ++ cmd ++ " &",
+      "-ex" , "shell adb -s " ++ name dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ project_pid ++ " &",
       "-ex", "shell sleep 1",
       "-ex", "set sysroot " ++ dir,
       "-ex", "target remote :1234",
@@ -70,7 +95,7 @@ pullBinaries dev root = do
   mapM_ (\x -> M.void $ adbPull (name dev) ("/system/bin/" ++ x) (root ++ "/system/bin/" ++ x) ) ["linker", "linker64","app_process32", "app_process64", "app_process"]
 
 
-prepGdbServer :: FilePath -> String -> String -> IO String
+prepGdbServer :: FilePath -> String -> String -> IO (String, String)
 prepGdbServer toolchainRoot projectName dev = do
   findPid dev "gdbserver" >>= onMaybe (\pid -> M.void $ adbCmdAs dev projectName ["kill", "-9", pid])
   
@@ -79,10 +104,7 @@ prepGdbServer toolchainRoot projectName dev = do
   Just pid <- findPid dev projectName >>= (\x -> if isJust x then return x else (fail ("Could not find " ++ projectName)))
 
   gdbserver <- pushGdbServerIfMissing toolchainRoot projectName dev
-
-  let cmd = "adb -s " ++ dev  ++ " shell run-as " ++ projectName ++ " " ++ gdbserver ++ " --attach :1234 " ++ pid
-  print cmd
-  return cmd
+  return (gdbserver, pid)
 
   where onMaybe _ Nothing = return ()
         onMaybe m (Just pid) = m pid

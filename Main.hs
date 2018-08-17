@@ -138,6 +138,22 @@ a_gdb args = do
     output
     (aProjectRoot androidConfig ++ "/app/src/main/jniLibs")
     (targets androidConfig)
+
+a_gdbserver :: Args -> IO ()
+a_gdbserver args = do
+  config <- readConfig "config.json"
+
+  let Just androidConfig = android config
+  let dev = if null args then
+              Nothing
+            else
+              Just $ head args
+
+  gdbServer
+    dev
+    (aProjectName androidConfig)
+    output
+    (targets androidConfig)
   
 _test :: Args -> IO ()
 _test _ = readConfig "config.json" >>= print
@@ -156,7 +172,6 @@ mainIOS (x:args)
   | x == "build"    = i_build    $ fromArgs args
   | x == "external" = i_external $ fromArgs args
   | x == "gdb"      = return ()
-  | x == "test"     = _test args
   | otherwise = printL [
       "Usage: superglue ios cmd",
       "  init         - initialize repository",
@@ -165,17 +180,18 @@ mainIOS (x:args)
 
 mainAndroid :: Args -> IO ()
 mainAndroid (x:args)
-  | x == "init"     = a_init
-  | x == "build"    = a_build    $ fromArgs args
-  | x == "external" = a_external $ fromArgs args
-  | x == "gdb"      = a_gdb   args
-  | x == "test"     = _test   args
+  | x == "init"      = a_init
+  | x == "build"     = a_build    $ fromArgs args
+  | x == "external"  = a_external $ fromArgs args
+  | x == "gdb"       = a_gdb   args
+  | x == "gdbserver" = a_gdbserver args
   | otherwise = printL [
       "Usage: superglue android cmd",
-      "  init         - initialize repository",
-      "  build        - self explanatory",
-      "  external     - Build external projects",
-      "  gdb <device> - attach to the process on android"]
+      "  init               - initialize repository",
+      "  build              - self explanatory",
+      "  external           - Build external projects",
+      "  gdb <device>       - attach to the process on android",
+      "  gdbserver <device> - start gdbserver and attach to process on android"]
 
 printL :: [String] -> IO ()
 printL = M.mapM_ print
