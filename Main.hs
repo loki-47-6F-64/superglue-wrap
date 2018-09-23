@@ -171,11 +171,12 @@ mainIOS (x:args)
   | x == "init"     = return ()
   | x == "build"    = i_build    $ fromArgs args
   | x == "external" = i_external $ fromArgs args
-  | x == "gdb"      = return ()
+  | x == "xcode"    = IOS.genXcodeProj
   | otherwise = printL [
       "Usage: superglue ios cmd",
       "  init         - initialize repository",
       "  build        - self explanatory",
+      "  xcode        - generate xcode project file in build/xcodeproj",
       "  external     - Build external projects"]
 
 mainAndroid :: Args -> IO ()

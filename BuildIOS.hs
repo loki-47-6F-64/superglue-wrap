@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module BuildIOS (buildMain, buildExternal) where
+module BuildIOS (genXcodeProj, buildMain, buildExternal) where
 
 import qualified Control.Monad as M
 import System.Directory
@@ -11,6 +11,22 @@ import Common
 
 capitalize :: String -> String
 capitalize (x:xs) = (toUpper x : xs) 
+
+
+genXcodeProj :: IO ()
+genXcodeProj = do
+  let dir = "build/xcodeproj"
+
+  createDirectoryIfMissing True dir
+  cmake dir [
+    "-G", "Xcode",
+    "-DCMAKE_BUILD_TYPE=Debug",
+    "-DTARGET_PLATFORM=IOS",
+    "-DIOS_PLATFORM=SIMULATOR64",
+    "-DCMAKE_TOOLCHAIN_FILE=../../ios-toolchain.cmake",
+    "-DCMAKE_INSTALL_PREFIX=.",
+    "../../"
+    ]
 
 buildMain' :: String -> String -> FilePath -> IO ()
 buildMain' buildType platform projectRoot = do
