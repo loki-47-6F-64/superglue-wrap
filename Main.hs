@@ -2,6 +2,7 @@
 
 import qualified Data.Aeson as JSON
 import Data.Functor
+import Data.Maybe
 import qualified Data.ByteString.Lazy as LB
 
 import GHC.Generics
@@ -39,8 +40,8 @@ data NDK = NDK {
 
 data Android = Android {
   targets       :: ![Target],
-  aProjectRoot  :: !String,
-  aProjectName  :: !String,
+  aProjectRoot  :: !(Maybe String),
+  aProjectName  :: !(Maybe String),
   ndk           :: !NDK
 } deriving (Show, Generic)
 
@@ -101,6 +102,25 @@ a_init = do
   let ndk' = ndk androidConfig
   downloadToolchain output (version ndk' ++ '-':osArch) (aChecksum ndk') >>= \archive -> extractToolchain output archive (api ndk') (targets androidConfig)
 
+c_build :: CmdBuild -> IO ()
+c_build args = do
+  config <- readConfig "config.json"
+
+  let Just androidConfig = android config
+  let buildType = build args
+
+  Android.consoleBuildMain buildType output (targets androidConfig)
+
+c_external :: CmdBuild -> IO ()
+c_external args = do
+  config <- readConfig "config.json"
+
+  let Just androidConfig = android config
+  let buildType = build args
+  Android.consoleBuildExternal buildType output
+
+  c_build args
+
 
 a_build :: CmdBuild -> IO ()
 a_build args = do
@@ -108,7 +128,7 @@ a_build args = do
 
   let Just androidConfig = android config
   let buildType = build args
-  Android.buildMain buildType (aProjectRoot androidConfig) output (targets androidConfig)
+  Android.buildMain buildType (fromJust . aProjectRoot $ androidConfig) output (targets androidConfig)
   
 
 a_external :: CmdBuild -> IO ()
@@ -117,7 +137,7 @@ a_external args = do
 
   let Just androidConfig = android config
   let buildType = build args
-  Android.buildExternal buildType (aProjectRoot androidConfig) output
+  Android.buildExternal buildType (fromJust . aProjectRoot $ androidConfig) output
 
   a_build args
 
@@ -134,9 +154,9 @@ a_gdb args = do
               Just $ head args
   gdbMain 
     dev
-    (aProjectName androidConfig)
+    (fromJust . aProjectName $ androidConfig)
     output
-    (aProjectRoot androidConfig ++ "/app/src/main/jniLibs")
+    ((fromJust . aProjectRoot $ androidConfig) ++ "/app/src/main/jniLibs")
     (targets androidConfig)
 
 a_gdbserver :: Args -> IO ()
@@ -151,7 +171,7 @@ a_gdbserver args = do
 
   gdbServer
     dev
-    (aProjectName androidConfig)
+    (fromJust . aProjectName $ androidConfig)
     output
     (targets androidConfig)
   
@@ -164,6 +184,12 @@ main' [] = main' ["help"]
 main' (x:args)
   | x == "android" = mainAndroid args
   | x == "ios"     = mainIOS args
+  | x == "console" = mainConsole args
+  | x == "help"    = printL [
+  "  Usage: superglue <cmd>",
+  "  ios     -- build library for ios",
+  "  android -- build library for android",
+  "  console -- build console app for android"]
   | otherwise      = main' ("android":x:args)
 
 mainIOS :: Args -> IO ()
@@ -184,10 +210,22 @@ mainAndroid (x:args)
   | x == "init"      = a_init
   | x == "build"     = a_build    $ fromArgs args
   | x == "external"  = a_external $ fromArgs args
-  | x == "gdb"       = a_gdb   args
+  | x == "gdb"       = a_gdb       args
   | x == "gdbserver" = a_gdbserver args
   | otherwise = printL [
       "Usage: superglue android cmd",
+      "  init               - initialize repository",
+      "  build              - self explanatory",
+      "  external           - Build external projects",
+      "  gdb <device>       - attach to the process on android",
+      "  gdbserver <device> - start gdbserver and attach to process on android"]
+mainConsole :: Args -> IO ()
+mainConsole (x:args)
+  | x == "init"     = a_init
+  | x == "build"    = c_build    $ fromArgs args
+  | x == "external" = c_external $ fromArgs args
+  | otherwise = printL [
+      "Usage: superglue console cmd",
       "  init               - initialize repository",
       "  build              - self explanatory",
       "  external           - Build external projects",
