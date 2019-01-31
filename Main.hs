@@ -20,17 +20,6 @@ import qualified BuildIOS as IOS
 
 import ArchVars
 
-class Cmd a where
-  fromArgs :: Args -> a
-
-data CmdBuild = CmdBuild {
-  build :: !String
-} deriving (Show)
-
-instance Cmd CmdBuild where
-  fromArgs []     = CmdBuild "debug"
-  fromArgs (x:xs) = CmdBuild x
-
 data NDK = NDK {
   version       :: !String,
   api           :: !String,
@@ -42,13 +31,13 @@ data Android = Android {
   targets       :: ![Target],
   aProjectRoot  :: !(Maybe String),
   aProjectName  :: !(Maybe String),
+  cProjectName  :: !(Maybe String),
   ndk           :: !NDK
 } deriving (Show, Generic)
 
 data IOS = IOS {
   iProjectRoot  :: !String
 } deriving (Show, Generic)
-
 
 data Config = Config {
   android :: !(Maybe Android),
@@ -73,7 +62,7 @@ i_build args = do
   print config
 
   let Just iosConfig = ios config
-  let buildType = build args
+  let buildType = b_build args
 
   IOS.buildMain buildType (iProjectRoot iosConfig)
 
@@ -107,7 +96,7 @@ c_build args = do
   config <- readConfig "config.json"
 
   let Just androidConfig = android config
-  let buildType = build args
+  let buildType = b_build args
 
   Android.consoleBuildMain buildType output (targets androidConfig)
 
@@ -116,7 +105,7 @@ c_external args = do
   config <- readConfig "config.json"
 
   let Just androidConfig = android config
-  let buildType = build args
+  let buildType = b_build args
   Android.consoleBuildExternal buildType output
 
   c_build args
@@ -127,7 +116,7 @@ a_build args = do
   config <- readConfig "config.json"  
 
   let Just androidConfig = android config
-  let buildType = build args
+  let buildType = b_build args
   Android.buildMain buildType (fromJust . aProjectRoot $ androidConfig) output (targets androidConfig)
   
 
@@ -136,42 +125,61 @@ a_external args = do
   config <- readConfig "config.json"
 
   let Just androidConfig = android config
-  let buildType = build args
+  let buildType = b_build args
   Android.buildExternal buildType (fromJust . aProjectRoot $ androidConfig) output
 
   a_build args
 
-a_gdb :: Args -> IO ()
+a_gdb :: CmdDebug -> IO ()
 a_gdb args = do
   config <- readConfig "config.json"
 
   let Just androidConfig = android config
   print $ targets androidConfig
 
-  let dev = if null args then
-              Nothing
-            else
-              Just $ head args
   gdbMain 
-    dev
+    args
     (fromJust . aProjectName $ androidConfig)
     output
     ((fromJust . aProjectRoot $ androidConfig) ++ "/app/src/main/jniLibs")
     (targets androidConfig)
 
-a_gdbserver :: Args -> IO ()
+c_gdb :: CmdDebug -> IO ()
+c_gdb args = do
+  config <- readConfig "config.json"
+
+  let Just androidConfig = android config
+  print $ targets androidConfig
+
+  consoleGDBMain
+    args
+    (fromJust . cProjectName $ androidConfig)
+    output
+    (targets androidConfig)
+    
+a_gdbserver :: CmdDebug -> IO ()
 a_gdbserver args = do
   config <- readConfig "config.json"
 
   let Just androidConfig = android config
-  let dev = if null args then
-              Nothing
-            else
-              Just $ head args
+  print $ targets androidConfig
 
   gdbServer
-    dev
+    args
     (fromJust . aProjectName $ androidConfig)
+    output
+    (targets androidConfig)
+  
+c_gdbServer :: CmdDebug -> IO ()
+c_gdbServer args = do
+  config <- readConfig "config.json"
+
+  let Just androidConfig = android config
+  print $ targets androidConfig
+
+  consoleGDBServer
+    args
+    (fromJust . cProjectName $ androidConfig)
     output
     (targets androidConfig)
   
@@ -208,29 +216,35 @@ mainIOS (x:args)
 mainAndroid :: Args -> IO ()
 mainAndroid (x:args)
   | x == "init"      = a_init
-  | x == "build"     = a_build    $ fromArgs args
-  | x == "external"  = a_external $ fromArgs args
-  | x == "gdb"       = a_gdb       args
-  | x == "gdbserver" = a_gdbserver args
+  | x == "build"     = a_build     $ fromArgs args
+  | x == "external"  = a_external  $ fromArgs args
+  | x == "gdb"       = a_gdb       $ fromArgs args
+  | x == "gdbserver" = a_gdbserver $ fromArgs args
   | otherwise = printL [
       "Usage: superglue android cmd",
-      "  init               - initialize repository",
-      "  build              - self explanatory",
-      "  external           - Build external projects",
-      "  gdb <device>       - attach to the process on android",
-      "  gdbserver <device> - start gdbserver and attach to process on android"]
+      "  init      - initialize repository",
+      "  build     - self explanatory",
+      "  external  - Build external projects",
+      "  gdb       - attach to the process on android",
+      "     --device <device>",
+      "  gdbserver - start gdbserver and attach to process on android",
+      "     --device <device>"]
 mainConsole :: Args -> IO ()
 mainConsole (x:args)
-  | x == "init"     = a_init
-  | x == "build"    = c_build    $ fromArgs args
-  | x == "external" = c_external $ fromArgs args
+  | x == "init"      = a_init
+  | x == "build"     = c_build     $ fromArgs args
+  | x == "external"  = c_external  $ fromArgs args
+  | x == "gdb"       = c_gdb       $ fromArgs args
+  | x == "gdbserver" = c_gdbServer $ fromArgs args
   | otherwise = printL [
       "Usage: superglue console cmd",
-      "  init               - initialize repository",
-      "  build              - self explanatory",
-      "  external           - Build external projects",
-      "  gdb <device>       - attach to the process on android",
-      "  gdbserver <device> - start gdbserver and attach to process on android"]
+      "  init      - initialize repository",
+      "  build     - self explanatory",
+      "  external  - Build external projects",
+      "  gdb       - attach to the process on android",
+      "     --build {debug, release} --device <device> --args <args>",
+      "  gdbserver - start gdbserver and attach to process on android",
+      "     --device <device> --args <args>"]
 
 printL :: [String] -> IO ()
 printL = M.mapM_ print

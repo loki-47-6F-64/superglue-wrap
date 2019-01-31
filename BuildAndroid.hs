@@ -54,7 +54,7 @@ buildExternal buildType projectRoot output = do
 
 consoleBuildMain' :: String -> FilePath -> Target -> IO ()
 consoleBuildMain' buildType output target = do
-  let dir = concat ["build/console/", arch target, '/':buildType]
+  let dir = concat ["build/console/", abi target, '/':buildType]
 
   exist <- doesDirectoryExist dir
   createDirectoryIfMissing True dir

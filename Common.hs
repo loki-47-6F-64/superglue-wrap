@@ -3,6 +3,9 @@
 module Common (
   Target(..),
   Exit(..),
+  Cmd(..),
+  CmdBuild(..),
+  CmdDebug(..),
   Args,
   procDir,
   procM,
@@ -35,6 +38,30 @@ data Target = Target {
   abi       :: !String
 } deriving (Show, Generic)
 instance JSON.FromJSON Target
+
+class Cmd a where
+  fromArgs :: Args -> a
+
+data CmdBuild = CmdBuild {
+  b_build :: !String
+} deriving (Show)
+
+data CmdDebug = CmdDebug {
+  d_device :: !(Maybe String),
+  d_build  :: !String,
+  d_args   :: ![String]
+} deriving (Show)
+
+instance Cmd CmdBuild where
+  fromArgs []     = CmdBuild "debug" 
+  fromArgs (x:xs) = CmdBuild x
+
+instance Cmd CmdDebug where
+  fromArgs []       = CmdDebug Nothing "debug" []
+  fromArgs (x:args)
+    | x == "--device" || x == "-d" = (fromArgs (tail args)) { d_device = (Just . head) args }
+    | x == "--build"  || x == "-b" = (fromArgs (tail args)) { d_build  = head args }
+    | x == "--args"   || x == "-a" = (fromArgs [])          { d_args   = tail args }
 
 data Exit = Exit {
   code   :: !ExitCode,
