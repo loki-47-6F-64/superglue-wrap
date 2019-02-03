@@ -70,8 +70,7 @@ consoleBuildMain' buildType output target = do
       "../../../../"])
     (cmake dir ["."])
 
-  let args = if buildType == "debug" then [] else ["-j4"] in
-    make dir ("install":args)
+  make dir ("install":"-j4":[])
 
 consoleBuildExternal :: String -> FilePath -> IO ()
 consoleBuildExternal buildType output = do
