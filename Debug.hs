@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Debug (Device(..), consoleInstall, consoleGDBMain, consoleGDBServer, gdbMain, gdbServer, devices) where
+module Debug (Device(..), consoleRun, consoleInstall, consoleGDBMain, consoleGDBServer, gdbMain, gdbServer, devices) where
 
 import Data.Char
 import Data.List
@@ -124,6 +124,20 @@ consoleGDBMain args bin output targets = do
     ]
 
   return ()
+
+consoleRun :: CmdDebug -> String -> [Target] -> IO ()
+consoleRun args bin targets = do
+  (target, dev) <- device targets $ d_device args
+
+  let libSearchPath = concat ["build/console/", abi target, ('/':d_build args), "/console"]
+  consoleInstall dev libSearchPath bin
+
+  putStrLn "" >> putStrLn ""
+  putStrLn $ "[><><><><><><><><><><><|-" ++ bin ++ "-|><><><><><><><><><><><]"
+  _ <- procMCtlc "adb" $ "-s":name dev:"shell":("/data/local/tmp/" ++ bin): d_args args
+
+  return ()
+
 
 consoleInstall' :: Device -> [FilePath] -> IO ()
 consoleInstall' dev = mapM_ (\bin -> do

@@ -165,6 +165,18 @@ c_gdb args = do
     (fromJust . cProjectName $ androidConfig)
     output
     (targets androidConfig)
+
+c_run :: CmdDebug -> IO ()
+c_run args = do
+  config <- readConfig "config.json"
+
+  let Just androidConfig = android config
+  print $ targets androidConfig
+
+  consoleRun
+    args
+    (fromJust . cProjectName $ androidConfig)
+    (targets androidConfig)
     
 a_gdbserver :: CmdDebug -> IO ()
 a_gdbserver args = do
@@ -244,12 +256,14 @@ mainConsole (x:args)
   | x == "build"     = c_build     $ fromArgs args
   | x == "external"  = c_external  $ fromArgs args
   | x == "gdb"       = c_gdb       $ fromArgs args
+  | x == "run"       = c_run       $ fromArgs args
   | x == "gdbserver" = c_gdbServer $ fromArgs args
   | otherwise = printL [
       "Usage: superglue console cmd",
       "  init      - initialize repository",
       "  build     - self explanatory",
       "  external  - Build external projects",
+      "  run       - Run the application",
       "  gdb       - attach to the process on android",
       "     --build {debug, release} --device <device> --args <args>",
       "  gdbserver - start gdbserver and attach to process on android",
