@@ -98,7 +98,11 @@ c_build args = do
   let Just androidConfig = android config
   let buildType = b_build args
 
-  Android.consoleBuildMain buildType output (targets androidConfig)
+  Android.consoleBuildMain
+    buildType 
+    (api . ndk $ androidConfig)
+    output
+    (targets androidConfig)
 
 c_external :: CmdBuild -> IO ()
 c_external args = do
@@ -117,7 +121,12 @@ a_build args = do
 
   let Just androidConfig = android config
   let buildType = b_build args
-  Android.buildMain buildType (fromJust . aProjectRoot $ androidConfig) output (targets androidConfig)
+  Android.buildMain
+    buildType
+    (api . ndk $ androidConfig)
+    (fromJust . aProjectRoot $ androidConfig)
+    output
+    (targets androidConfig)
   
 
 a_external :: CmdBuild -> IO ()
