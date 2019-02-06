@@ -60,7 +60,7 @@ instance Cmd CmdDebug where
   fromArgs (x:args)
     | x == "--device" || x == "-d" = (fromArgs (tail args)) { d_device = (Just . head) args }
     | x == "--build"  || x == "-b" = (fromArgs (tail args)) { d_build  = head args }
-    | x == "--args"   || x == "-a" = (fromArgs [])          { d_args   = tail args }
+    | x == "--args"   || x == "-a" = (fromArgs [])          { d_args   = args }
 
 data Exit = Exit {
   code   :: !ExitCode,
